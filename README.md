@@ -1,3 +1,3 @@
 ## My Portfolio
 
-[modjular.github.io](modjular.github.io)
+[modjular.github.io](https://modjular.github.io/)
