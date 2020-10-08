@@ -24,20 +24,30 @@ window.onload = () => {
   // new p5(sketch, window.document.getElementById('bg-canvas'));
 
   var subtitle = window.document.getElementById('my-title')
-  var titles = ["Software Engineer",
-                "Enthusiastic Learner",
-                "Data Scientist",
-                "Web Developer",
-                "Fullstack Engineer",
-                "Job Seeker",
-                "Eagle Scout",
-                "Brother",
-                "Extremely Tired",
-                "UX Appreciator",
-                "Dribbble Dabbler",
-                "Question Asker",
-                "Python Wrangler",
-                "UI Connoisseur",];
+  var titles = [
+    "Software Engineer",
+    "Enthusiastic Learner",
+    "Data Scientist",
+    "Web Developer",
+    "Fullstack Engineer",
+    "Job Seeker",
+    "Eagle Scout",
+    "Brother",
+    "Extremely Tired",
+    "UX Appreciator",
+    "Dribbble Dabbler",
+    "Question Asker",
+    "Python Wrangler",
+    "UI Connoisseur",
+    "Unity Tinkerer",
+    "You Still Here?",
+    "This Is The Last One",
+    "This Is The Last One",
+    "This Is The Last One",
+    "This Is The Last One",
+    "This Is The Last One",
+    "Congrats",
+    "For Real This Time",];
 
   var animating = false;
   var cur_i = 0;
@@ -70,9 +80,10 @@ window.onload = () => {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Grab a new title
-      while( next_i === cur_i ){
-        next_i = Math.floor(Math.random() * titles.length); //wack
-      }
+      // while( next_i === cur_i ){
+      //   next_i = Math.floor(Math.random() * titles.length); //wack
+      // }
+      next_i = (next_i + 1) % titles.length;
 
       // Start "typing" the new title
       length = 0;
