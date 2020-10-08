@@ -25,7 +25,7 @@ window.onload = () => {
 
   var subtitle = window.document.getElementById('my-title')
   var titles = ["Software Engineer",
-                "Ex Intern",
+                "Enthusiastic Learner",
                 "Data Scientist",
                 "Web Developer",
                 "Fullstack Engineer",
@@ -34,14 +34,17 @@ window.onload = () => {
                 "Brother",
                 "Extremely Tired",
                 "UX Appreciator",
-                "Dribbble Dabbler"];
+                "Dribbble Dabbler",
+                "Question Asker",
+                "Python Wrangler",
+                "UI Connoisseur",];
 
   var animating = false;
   var cur_i = 0;
   var next_i = 0;
 
 
-  // async const typeText = (element, new_text) => {
+  // onst typeText = (element, new_text) => {
     
   // }
 
@@ -52,27 +55,26 @@ window.onload = () => {
     if(ev.button === 0 && animating === false){
       animating = true;
 
-      // clear the text, 
+      // "backspace" the current title
       let length = titles[cur_i].length;
       while (length > 0){
         await new Promise(resolve => setTimeout(resolve, 32));
         let amt = Math.floor(Math.random() * 5) + 2;
         amt = Math.min(amt, length);
-        //console.log(amt);
         subtitle.textContent = subtitle.textContent.substring(0, subtitle.textContent.length - amt);;
         length -= amt;
       }
       subtitle.textContent = "";
 
       // Breath for a sec
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Grab a new title
       while( next_i === cur_i ){
         next_i = Math.floor(Math.random() * titles.length); //wack
       }
 
-      // Start typing the new title
+      // Start "typing" the new title
       length = 0;
       while (length < titles[next_i].length){
         await new Promise(resolve => setTimeout(resolve, 32));
@@ -80,7 +82,7 @@ window.onload = () => {
         length++;
       }
 
-      // Set old to new 
+      // Keep track of the old one
       subtitle.textContent = titles[next_i];
       cur_i = next_i;
 
