@@ -55,7 +55,7 @@ window.onload = () => {
       // clear the text, 
       let length = titles[cur_i].length;
       while (length > 0){
-        await new Promise(resolve => setTimeout(resolve, 64));
+        await new Promise(resolve => setTimeout(resolve, 32));
         let amt = Math.floor(Math.random() * 5) + 2;
         amt = Math.min(amt, length);
         //console.log(amt);
@@ -75,7 +75,7 @@ window.onload = () => {
       // Start typing the new title
       length = 0;
       while (length < titles[next_i].length){
-        await new Promise(resolve => setTimeout(resolve, 64));
+        await new Promise(resolve => setTimeout(resolve, 32));
         subtitle.textContent += titles[next_i][length]
         length++;
       }
