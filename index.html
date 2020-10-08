@@ -2,6 +2,16 @@
   <title>Portfolio</title>
   <head>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <style>
+      h1,h2,h3,h4 {
+        font-family: 'DM Serif Display', serif;
+      }
+      /* set a max-width for horizontal fluid layout and make it centered */
+      .containerr{
+        max-width: 900;
+      }
+    </style>
   </head>
 
   <body>
@@ -9,32 +19,37 @@
     <div class="container">
 
       <!-- Profile picture header -->
-  
-      <div class="row align-items-center h-75">
-        <div class="col-md-2 offset-md-3">
-          <img
-          class="img-thumbnail rounded-circle d-block mw-25"
-          alt="This is a picture of Anthony Reksoatmodjo smiling on top of a mountain"
-          src="images/image1.jpg"
-          title="Anthony Reksoatmodjo proudly smiling on a mountain"
-        >
-        </div>
-        <div class="col-md-4 ">
-          <h2 class="mx-auto align-text-bottom">Anthony Reksoatmodjo</h2>
+
+      <div id="profile-header">
+        <div class="card-img" id='bg-canvas'></div>
+        <div class="row align-items-center h-100 card-img-overlay">
+          <div class="col-md-2 offset-md-3 col-xs-1 p-5 p-md-0">
+            <img
+            class="img-thumbnail img-fluid rounded-circle d-block mh-25"
+            alt="This is a picture of Anthony Reksoatmodjo smiling on top of a mountain"
+            src="images/image1.jpg"
+            title="Anthony Reksoatmodjo proudly smiling on a mountain"
+          >
+          </div>
+          <div class="col-md-4 col-xs-1">
+            <h2 class="mx-auto align-text-bottom">Anthony Reksoatmodjo</h2>
+            <h4 class="mx-auto text-muted">Software Engineer</h4>
+          </div>
         </div>
       </div>
+
 
       <!-- Introduction -->
 
       <p class="lead"><span>Hi, I&rsquo;m a student at the University of California Irvine. I study Computer Science,
-        with a specialization in </span><span class="c5 c3">
+        with a specialization in </span><span>
           <a href="https://www.ics.uci.edu/ugrad/degrees/degree_cs.php">Intelligent Systems</a>.
-          </span><span class="c3">&nbsp;I&rsquo;m into UI and Frontend, but low level graphics and algorithms are cool too.
+          </span><span>&nbsp;I&rsquo;m into UI and Frontend, but low level graphics and algorithms are cool too.
         In my spare time, I play guitar, and watch unhealthy amounts of Youtube.
         I also enjoy answering random questions on the official <a href="https://discourse.processing.org/">Processing discourse</a>.
       </span></p>
     
-    <br><hr/>
+    <br><hr/><br>
 
     <h3>Sketches and Tools</h3><br>
     
@@ -63,7 +78,7 @@
     </div>
 
         
-    <br/><hr/>
+    <br/><hr/><br>
 
     <h3>Other Works</h3><br>
 
@@ -109,13 +124,15 @@
     <p class="text-muted">
       <span>
         Any email that does not contain interesting questions or romantic
-        intent will be viciously ignored: </span><span class="c5 c15"><a class="c1"
-          href="mailto:areksoat@uci.edu">areksoat@uci.edu</a>
+        intent will be viciously ignored: </span><span>
+        <a href="mailto:areksoat@uci.edu">areksoat@uci.edu</a>
       </span>
     </p>
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/p5@1.1.9/lib/p5.js"></script>
+    <script src="sketch.js"></script> -->
   </body>
 </html>
