@@ -1,0 +1,230 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+	<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.2.0/d3.js" ></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/rickshaw/1.6.5/rickshaw.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/rickshaw/1.6.3/rickshaw.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+		<title>
+			Yeehaw
+		</title>
+  </head>
+  
+  <style>
+    body {
+      padding: 0px;
+    }
+
+    #chart_container {
+      position: relative;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #demo_chart {
+      position: relative;
+      /* left: 40px; */
+    }
+
+    #charts {
+      filter: grayscale(0.9);
+    }
+
+    #charts:active {
+      filter: grayscale(0.0);
+    }
+
+    .record-button {
+      border-radius: 4px;
+      border-style: none;
+      background-color: crimson;
+      width: 200px;
+      height: 32px;
+      margin: 20px auto 20px auto;
+      display: block;
+    }
+
+    .record-button:active {
+      filter: saturate(10);
+    }
+
+    /* #y_axis {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 40px;
+    } */
+  </style>
+
+	<body>
+    <h1>Accelerometer Visualizer</h1>
+    <div id="mydiv">No accelerometer detected</div>
+    <div id="charts">
+      <div id="chart_container">
+        <div id="y_axis"></div>
+        <div id="chart_z"></div>
+      </div>
+      <div id="chart_container">
+        <div id="y_axis"></div>
+        <div id="chart_y"></div>
+      </div>
+      <div id="chart_container">
+        <div id="y_axis"></div>
+        <div id="chart_x"></div>
+      </div>
+      <button class="record-button" mouseup="handleOnClick()"></button>
+    </div>
+  </body>
+
+
+
+  <script type="text/javascript">
+
+    navigator.permissions.query({name:'accelerometer'})
+      .then((result) => {
+
+        console.log("Permissions?", result);
+
+        if (result.state === 'granted') {
+          console.log("We can use the accelerometer");
+          console.log(window.Accelerometer);
+          initAccel();
+        } else if (result.state === 'prompt') {
+          askForPerm();
+        }
+        // Don't do anything if the permission was denied.
+      });
+    
+     // Lets see what's inside!
+    const initAccel = () => {
+      let sensorConstructor = window.Accelerometer;
+      let acl = new sensorConstructor({frequency: 50}); // 20hz
+      var mydiv = document.getElementById("mydiv");
+      
+      acl.addEventListener('reading', () => {
+        let data = "X: " + acl.x.toFixed(2) + ", Y: " + acl.y.toFixed(2) + ", Z: " + acl.z.toFixed(2);
+        mydiv.innerText = data;
+      });
+
+      acl.start();
+
+
+
+
+      // Credit:
+      // https://itnext.io/javascript-real-time-visualization-of-high-frequency-streams-d6533c774794
+
+      /* Rickshaw real-time data visualization (UNOPTIMIZED)*/
+      var updateInterval = 20;
+
+      /* Rickshaw.js initialization */
+      var chart1 = new Rickshaw.Graph({
+        element: document.querySelector("#chart_z"),
+        width: window.innerWidth - 20,
+        height: 120,
+        renderer: "line",
+        min: "0",
+        max: "16",
+        series: new Rickshaw.Series.FixedDuration(
+          [
+            {
+              name: "one",
+              color: "#EC644B"
+            }
+          ],
+          undefined,
+          {
+            timeInterval: updateInterval,
+            maxDataPoints: 100
+          }
+        )
+      });
+
+      var chart2 = new Rickshaw.Graph({
+        element: document.querySelector("#chart_y"),
+        width: window.innerWidth,
+        height: 120,
+        renderer: "line",
+        min: "-10",
+        max: "10",
+        series: new Rickshaw.Series.FixedDuration(
+          [
+            {
+              name: "one",
+              color: "#85bf5c"
+            }
+          ],
+          undefined,
+          {
+            timeInterval: updateInterval,
+            maxDataPoints: 100
+          }
+        )
+      });
+
+      var chart3 = new Rickshaw.Graph({
+        element: document.querySelector("#chart_x"),
+        width: window.innerWidth,
+        height: 120,
+        renderer: "line",
+        min: "-10",
+        max: "10",
+        series: new Rickshaw.Series.FixedDuration(
+          [
+            {
+              name: "one",
+              color: "#5f8acf"
+            }
+          ],
+          undefined,
+          {
+            timeInterval: updateInterval,
+            maxDataPoints: 100
+          }
+        )
+      });
+
+      // var y_axis = new Rickshaw.Graph.Axis.Y({
+      //   graph: chart1,
+      //   orientation: "left",
+      //   tickFormat: function(y) {
+      //     return y.toFixed(2);
+      //   },
+      //   ticks: 5,
+      //   element: document.getElementById("y_axis")
+      // });
+
+
+
+
+      /* Timer function that is called every @updateInterval milliseconds*/
+      setInterval(function() {
+        getAccelData();
+      }, updateInterval);
+
+      /* Function that generates and inserts random datapoint into the chart */
+      function getAccelData() {
+        if (pls_record === true){        
+          chart1.series.addData({one: acl.z});
+          chart2.series.addData({one: acl.y});
+          chart3.series.addData({one: acl.x});
+          chart1.render();
+          chart2.render();
+          chart3.render();
+        }
+      }
+    }
+
+    var pls_record = false;
+    var body = document.getElementById("charts");
+    body.addEventListener("touchstart", () => pls_record = true);
+    body.addEventListener("touchend", () => pls_record = false);
+
+    function handleOnClick() {
+      console.log("click");
+    }
+
+  </script>
+
+</html>
