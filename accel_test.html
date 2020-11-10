@@ -63,7 +63,7 @@
 
 	<body>
     <h1>Accelerometer Visualizer</h1>
-    <p id="accel-data">No accelerometer detected</p>
+    <div id="accel-data">No accelerometer detected</div>
     <div id="charts">
       <div id="chart_container">
         <div id="y_axis"></div>
@@ -104,14 +104,10 @@
     const initAccel = () => {
       let sensorConstructor = window.Accelerometer;
       let acl = new sensorConstructor({frequency: 50}); // 20hz
-      var"accel-data
- = document.getElementById("accel-data
-");
-      
+      var accel_data = document.getElementById("accel-data");
       acl.addEventListener('reading', () => {
         let data = "X: " + acl.x.toFixed(2) + ", Y: " + acl.y.toFixed(2) + ", Z: " + acl.z.toFixed(2);
-      "accel-data
-.innerText = data;
+        accel_data.innerText = data;
       });
 
       acl.start();
