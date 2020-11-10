@@ -17,6 +17,10 @@
       padding: 0px;
     }
 
+    #accel-data {
+      /* margin-left: 1em; */
+    }
+
     #chart_container {
       position: relative;
       font-family: Arial, Helvetica, sans-serif;
@@ -59,7 +63,7 @@
 
 	<body>
     <h1>Accelerometer Visualizer</h1>
-    <div id="mydiv">No accelerometer detected</div>
+    <p id="accel-data">No accelerometer detected</p>
     <div id="charts">
       <div id="chart_container">
         <div id="y_axis"></div>
@@ -100,11 +104,14 @@
     const initAccel = () => {
       let sensorConstructor = window.Accelerometer;
       let acl = new sensorConstructor({frequency: 50}); // 20hz
-      var mydiv = document.getElementById("mydiv");
+      var"accel-data
+ = document.getElementById("accel-data
+");
       
       acl.addEventListener('reading', () => {
         let data = "X: " + acl.x.toFixed(2) + ", Y: " + acl.y.toFixed(2) + ", Z: " + acl.z.toFixed(2);
-        mydiv.innerText = data;
+      "accel-data
+.innerText = data;
       });
 
       acl.start();
