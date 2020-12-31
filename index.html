@@ -12,13 +12,15 @@
       h1,h2,h3,h4 {
         font-family: 'DM Serif Display', serif;
       }
-      /* set a max-width for horizontal fluid layout and make it centered */
       
       .cardstock {
         background-color: #fef9ef;
       }
-      .container{
+      .container {
         max-width: 1000;
+      }
+      .project-card:hover{
+        filter: contrast(1.2);
       }
       #my-title{
         cursor: pointer;
@@ -55,9 +57,9 @@
           <div class="col-md-2 offset-md-3 col-xs-1 p-5 p-md-0">
             <img
             class="img-thumbnail img-fluid rounded-circle d-block mh-25"
-            alt="This is a picture of Anthony Reksoatmodjo smiling on top of a mountain"
+            alt="Me on a mountain"
             src="images/image1.jpg"
-            title="Anthony Reksoatmodjo proudly smiling on a mountain"
+            title="Me on a mountain"
           >
           </div>
           <div class="col-md-4 col-xs-1">
@@ -80,34 +82,48 @@
     
     <br><hr/><br>
 
-    <h3>Sketches and Tools</h3><br>
+    <h3>Tools and Projects</h3><br>
     
     <div class="row">
       <div class="col-md-4 col-sm-6">
         <a href="https://www.openprocessing.org/sketch/566877">
-          <div class="card bg-dark text-white mb-4">
+          <div class="card project-card bg-dark text-white mb-4">
             <img class="card-img" src="images/visualThumbnail566877@2x.png" />
           </div>
         </a>
       </div>
       <div class="col-md-4 col-sm-6">
         <a href="https://www.openprocessing.org/sketch/570537">
-          <div class="card bg-dark mb-4">
+          <div class="card project-card bg-dark mb-4">
             <img class="card-img" src="images/visualThumbnail570537@2x.png" />
           </div>
         </a>
       </div>
       <div class="col-md-4 col-sm-6">
         <a href="https://www.openprocessing.org/sketch/577977">
-          <div class="card bg-dark mb-4">
+          <div class="card project-card bg-dark mb-4">
             <img class="card-img" src="images/visualThumbnail577977@2x.png" />
           </div>
         </a>
       </div>
       <div class="col-md-4 col-sm-6">
         <a href="accel_test.html">
-          <div class="card bg-dark mb-4">
+          <div class="card project-card bg-dark mb-4">
             <img class="card-img" src="images/lets-accel.gif" />
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4 col-sm-6">
+        <a href="https://modjular.github.io/CS112-OctreeColorQuantizer/">
+          <div class="card project-card bg-dark mb-4">
+            <img class="card-img" src="images/donut_octree.jpeg" />
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4 col-sm-6">
+        <a href="https://modjular.github.io/boringAI/final.html">
+          <div class="card project-card bg-dark mb-4">
+            <img class="card-img" src="images/Returns_PPO_9block.png" />
           </div>
         </a>
       </div>
@@ -117,7 +133,7 @@
         
     <br/><hr/><br>
 
-    <h3>Other Works</h3><br>
+    <h3>Other Work</h3><br>
 
     <div class="row">
       <div class="col-sm-6 col-lg-3">
@@ -125,7 +141,6 @@
           <div class="card-body cardstock">
             <h5 class="card-title"><a href="https://github.com/Modjular" class="card-link">Github</a></h5>
             <p class="card-text">Various Unity projects and webapps</p>
-            
           </div>
         </div>
       </div>
