@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Task History</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --text: #1c1e21;
+            --primary: #2ecc71;
+            --accent: #3498db;
+            --border: #dddfe2;
+            --danger: #ff4757;
+        }
+
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container { width: 100%; max-width: 480px; }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: var(--card);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .task-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .task-info { flex: 1; }
+
+        .task-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .time-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: #eee;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .time-badge.recent { background: #e8f5e9; color: #2e7d32; }
+        .time-badge.old { background: #fff3e0; color: #ef6c00; }
+
+        .done-btn { background: var(--primary); margin-left: 10px; }
+
+        .history-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f2f5;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 2px;
+            opacity: 0.15;
+        }
+
+        .dot.active { opacity: 1; }
+
+        .delete-link {
+            font-size: 0.75rem;
+            color: var(--danger);
+            text-decoration: none;
+            margin-top: 12px;
+            display: inline-block;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="input-group">
+        <input type="text" id="taskInput" placeholder="New task...">
+        <button onclick="addTask()">Add</button>
+    </div>
+
+    <div id="taskList"></div>
+</div>
+
+<script>
+    let tasks = JSON.parse(localStorage.getItem('chore_tracker')) || [];
+
+    function getTimeSince(timestamp) {
+        if (!timestamp) return "Never done";
+        const diff = Date.now() - timestamp;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        
+        if (days === 0) return "Done today";
+        if (days === 1) return "Done yesterday";
+        return `${days} days ago`;
+    }
+
+    function getBadgeClass(timestamp) {
+        if (!timestamp) return "";
+        const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
+        if (days < 7) return "recent";
+        if (days > 30) return "old";
+        return "";
+    }
+
+    function save() {
+        localStorage.setItem('chore_tracker', JSON.stringify(tasks));
+        render();
+    }
+
+    function addTask() {
+        const input = document.getElementById('taskInput');
+        if (!input.value.trim()) return;
+        tasks.push({ id: Date.now(), name: input.value, history: [] });
+        input.value = '';
+        save();
+    }
+
+    function markDone(id) {
+        const task = tasks.find(t => t.id === id);
+        task.history.push(Date.now());
+        save();
+    }
+
+    function deleteTask(id) {
+        if(confirm('Delete this task?')) {
+            tasks = tasks.filter(t => t.id !== id);
+            save();
+        }
+    }
+
+    function render() {
+        const list = document.getElementById('taskList');
+        list.innerHTML = '';
+
+        // Sort: Most overdue/oldest first
+        const sortedTasks = [...tasks].sort((a, b) => {
+            const lastA = a.history.length ? a.history[a.history.length - 1] : 0;
+            const lastB = b.history.length ? b.history[b.history.length - 1] : 0;
+            return lastA - lastB;
+        });
+
+        sortedTasks.forEach(task => {
+            const lastTimestamp = task.history.length ? task.history[task.history.length - 1] : null;
+            const card = document.createElement('div');
+            card.className = 'task-card';
+            
+            card.innerHTML = `
+                <div class="task-header">
+                    <div class="task-info">
+                        <span class="time-badge ${getBadgeClass(lastTimestamp)}">
+                            ${getTimeSince(lastTimestamp)}
+                        </span>
+                        <strong class="task-name">${task.name}</strong>
+                    </div>
+                    <button class="done-btn" onclick="markDone(${task.id})">Done</button>
+                </div>
+                <div class="history-bar">
+                    ${task.history.slice(-30).map(() => `<div class="dot active"></div>`).join('')}
+                    ${Array(Math.max(0, 5 - task.history.length)).fill('<div class="dot"></div>').join('')}
+                </div>
+                <a href="#" class="delete-link" onclick="deleteTask(${task.id})">Remove task</a>
+            `;
+            list.appendChild(card);
+        });
+    }
+
+    render();
+</script>
+
+</body>
+</html>
+  
