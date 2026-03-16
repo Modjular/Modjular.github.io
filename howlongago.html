@@ -3,225 +3,642 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Task History</title>
+    <title>When I Last</title>
     <style>
         :root {
-            --bg: #f0f2f5;
-            --card: #ffffff;
-            --text: #1c1e21;
-            --primary: #2ecc71;
-            --accent: #3498db;
-            --border: #dddfe2;
-            --danger: #ff4757;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #212529;
+            --text-secondary: #6c757d;
+            --accent-color: #0d6efd;
+            --accent-hover: #0b5ed7;
+            --danger-color: #dc3545;
+            --square-empty: #ebedf0;
+            --square-active: #216e39;
+            --radius: 12px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            font-family: -apple-system, system-ui, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
             margin: 0;
-            padding: 15px;
+            padding: 20px;
             display: flex;
-            flex-direction: column;
-            align-items: center;
+            justify-content: center;
         }
 
-        .container { width: 100%; max-width: 480px; }
+        main {
+            width: 100%;
+            max-width: 500px;
+        }
 
-        .input-group {
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .header-actions {
             display: flex;
             gap: 8px;
-            margin-bottom: 20px;
-            background: var(--card);
-            padding: 10px;
-            border-radius: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        input[type="text"] {
-            flex-grow: 1;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 16px;
-            outline: none;
         }
 
         button {
-            padding: 10px 16px;
             border: none;
             border-radius: 8px;
-            background: var(--accent);
-            color: white;
+            padding: 8px 12px;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
         }
 
-        .task-card {
-            background: var(--card);
-            border-radius: 12px;
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #e9ecef;
+            color: var(--text-main);
+        }
+
+        .btn-icon {
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .event-card {
+            background-color: var(--card-bg);
+            border-radius: var(--radius);
             padding: 16px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
             position: relative;
         }
 
-        .task-header {
+        .event-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            margin-bottom: 12px;
         }
 
-        .task-info { flex: 1; }
-
-        .task-name {
-            font-weight: 700;
+        .event-info h2 {
+            margin: 0;
             font-size: 1.1rem;
-            margin-bottom: 4px;
-            display: block;
+            font-weight: 600;
         }
 
-        .time-badge {
-            display: inline-block;
-            font-size: 0.75rem;
-            padding: 2px 8px;
-            border-radius: 20px;
-            background: #eee;
-            color: #666;
-            margin-bottom: 8px;
+        .event-info p {
+            margin: 4px 0 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
         }
 
-        .time-badge.recent { background: #e8f5e9; color: #2e7d32; }
-        .time-badge.old { background: #fff3e0; color: #ef6c00; }
+        .heatmap-container {
+            overflow-x: auto;
+            margin: 12px 0;
+            padding-bottom: 8px;
+            scrollbar-width: thin;
+        }
 
-        .done-btn { background: var(--primary); margin-left: 10px; }
-
-        .history-bar {
-            display: flex;
-            flex-wrap: wrap;
+        .heatmap {
+            display: grid;
+            grid-template-rows: repeat(7, 10px);
+            grid-auto-flow: column;
             gap: 3px;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #f0f2f5;
+            width: max-content;
         }
 
-        .dot {
-            width: 12px;
-            height: 12px;
-            background: var(--primary);
+        .heatmap-square {
+            width: 10px;
+            height: 10px;
             border-radius: 2px;
-            opacity: 0.15;
         }
 
-        .dot.active { opacity: 1; }
+        .square-empty { background-color: var(--square-empty); }
+        .square-active { background-color: var(--square-active); }
 
-        .delete-link {
-            font-size: 0.75rem;
-            color: var(--danger);
-            text-decoration: none;
+        .event-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-top: 12px;
-            display: inline-block;
-            opacity: 0.6;
         }
+
+        .btn-log {
+            flex-grow: 1;
+            margin-right: 8px;
+            padding: 10px;
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-delete {
+            padding: 4px 8px;
+            background-color: transparent;
+            color: var(--danger-color);
+            font-weight: 400;
+            font-size: 0.8rem;
+        }
+
+        .card-menu-container {
+            position: relative;
+        }
+
+        .card-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            flex-direction: column;
+            z-index: 10;
+            min-width: 120px;
+            border: 1px solid #eee;
+            overflow: hidden;
+        }
+
+        .card-menu button {
+            border-radius: 0;
+            padding: 10px 16px;
+            text-align: left;
+            width: 100%;
+            background: transparent;
+            color: var(--text-main);
+            font-weight: 400;
+            font-size: 0.9rem;
+        }
+
+        .card-menu button:hover {
+            background-color: #f8f9fa;
+        }
+
+        .card-menu.active {
+            display: flex;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 400px;
+            padding: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .modal h3 {
+            margin: 0 0 16px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+
+        /* Utils */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="input-group">
-        <input type="text" id="taskInput" placeholder="New task...">
-        <button onclick="addTask()">Add</button>
+<main>
+    <div id="event-list">
+        <!-- Events will be rendered here -->
     </div>
 
-    <div id="taskList"></div>
+    <div id="empty-state" class="empty-state hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <p>No events tracked yet.<br>Tap "Add New" to get started.</p>
+    </div>
+
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h1 style="font-size: 1.2rem; margin: 0; opacity: 0.6;">How Long Ago</h1>
+            <div class="header-actions">
+                <button class="btn-secondary btn-icon" id="btn-io" title="Export/Import">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </button>
+                <button class="btn-primary" id="btn-add">Add New</button>
+            </div>
+        </div>
+    </footer>
+</main>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="add-modal">
+    <div class="modal">
+        <h3>New Event</h3>
+        <input type="text" id="event-name-input" placeholder="e.g., Watered Plants" autofocus>
+        <div class="modal-actions">
+            <button class="btn-secondary" id="btn-cancel-add">Cancel</button>
+            <button class="btn-primary" id="btn-save-event">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+        <h3>Rename Event</h3>
+        <input type="text" id="edit-name-input" placeholder="New name">
+        <input type="hidden" id="edit-event-id">
+        <div class="modal-actions">
+            <button class="btn-secondary" id="btn-cancel-edit">Cancel</button>
+            <button class="btn-primary" id="btn-save-rename">Update</button>
+        </div>
+    </div>
+</div>
+
+<!-- IO Modal (Export/Import) -->
+<div class="modal-overlay" id="io-modal">
+    <div class="modal">
+        <h3>Data Backup</h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">
+            Export your data to a JSON file or import a previous backup.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button class="btn-secondary" id="btn-export" style="width: 100%;">Download JSON Backup</button>
+            <div style="position: relative;">
+                <button class="btn-secondary" style="width: 100%;">Import JSON Backup</button>
+                <input type="file" id="import-input" accept=".json" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+            </div>
+            <button class="btn-secondary" id="btn-close-io">Close</button>
+        </div>
+    </div>
 </div>
 
 <script>
-    let tasks = JSON.parse(localStorage.getItem('chore_tracker')) || [];
+    // --- State Management ---
+    const STORAGE_KEY = 'whenilast_data';
+    let state = {
+        events: []
+    };
 
-    function getTimeSince(timestamp) {
-        if (!timestamp) return "Never done";
-        const diff = Date.now() - timestamp;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        
-        if (days === 0) return "Done today";
-        if (days === 1) return "Done yesterday";
-        return `${days} days ago`;
-    }
-
-    function getBadgeClass(timestamp) {
-        if (!timestamp) return "";
-        const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
-        if (days < 7) return "recent";
-        if (days > 30) return "old";
-        return "";
-    }
-
-    function save() {
-        localStorage.setItem('chore_tracker', JSON.stringify(tasks));
-        render();
-    }
-
-    function addTask() {
-        const input = document.getElementById('taskInput');
-        if (!input.value.trim()) return;
-        tasks.push({ id: Date.now(), name: input.value, history: [] });
-        input.value = '';
-        save();
-    }
-
-    function markDone(id) {
-        const task = tasks.find(t => t.id === id);
-        task.history.push(Date.now());
-        save();
-    }
-
-    function deleteTask(id) {
-        if(confirm('Delete this task?')) {
-            tasks = tasks.filter(t => t.id !== id);
-            save();
+    function loadState() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                state = JSON.parse(saved);
+            } catch (e) {
+                console.error("Failed to parse state", e);
+            }
         }
     }
 
-    function render() {
-        const list = document.getElementById('taskList');
-        list.innerHTML = '';
-
-        // Sort: Most overdue/oldest first
-        const sortedTasks = [...tasks].sort((a, b) => {
-            const lastA = a.history.length ? a.history[a.history.length - 1] : 0;
-            const lastB = b.history.length ? b.history[b.history.length - 1] : 0;
-            return lastA - lastB;
-        });
-
-        sortedTasks.forEach(task => {
-            const lastTimestamp = task.history.length ? task.history[task.history.length - 1] : null;
-            const card = document.createElement('div');
-            card.className = 'task-card';
-            
-            card.innerHTML = `
-                <div class="task-header">
-                    <div class="task-info">
-                        <span class="time-badge ${getBadgeClass(lastTimestamp)}">
-                            ${getTimeSince(lastTimestamp)}
-                        </span>
-                        <strong class="task-name">${task.name}</strong>
-                    </div>
-                    <button class="done-btn" onclick="markDone(${task.id})">Done</button>
-                </div>
-                <div class="history-bar">
-                    ${task.history.slice(-30).map(() => `<div class="dot active"></div>`).join('')}
-                    ${Array(Math.max(0, 5 - task.history.length)).fill('<div class="dot"></div>').join('')}
-                </div>
-                <a href="#" class="delete-link" onclick="deleteTask(${task.id})">Remove task</a>
-            `;
-            list.appendChild(card);
-        });
+    function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        render();
     }
 
+    // --- Utilities ---
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
+
+    function formatTimeAgo(timestamp) {
+        if (!timestamp) return 'Never';
+        const seconds = Math.floor((Date.now() - timestamp) / 1000);
+        
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + "y ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + "mo ago";
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + "d ago";
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + "h ago";
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + "m ago";
+        return "Just now";
+    }
+
+    function getDayKey(timestamp) {
+        const d = new Date(timestamp);
+        return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    }
+
+    // --- Rendering ---
+    const eventList = document.getElementById('event-list');
+    const emptyState = document.getElementById('empty-state');
+
+    function render() {
+        if (state.events.length === 0) {
+            eventList.innerHTML = '';
+            emptyState.classList.remove('hidden');
+            return;
+        }
+        emptyState.classList.add('hidden');
+
+        // Sort events by last logged (most recent first)
+        const sortedEvents = [...state.events].sort((a, b) => {
+            const lastA = a.history[0] || 0;
+            const lastB = b.history[0] || 0;
+            return lastB - lastA;
+        });
+
+        eventList.innerHTML = sortedEvents.map(event => {
+            const lastLogged = event.history[0];
+            const timeAgo = formatTimeAgo(lastLogged);
+            
+            return `
+                <div class="event-card" data-id="${event.id}">
+                    <div class="event-header">
+                        <div class="event-info">
+                            <h2>${escapeHtml(event.name)}</h2>
+                            <p>Last: ${timeAgo}</p>
+                        </div>
+                        <div class="card-menu-container">
+                            <button class="btn-icon" onclick="toggleMenu(event, '${event.id}')" style="color: var(--text-secondary); padding: 4px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                            </button>
+                            <div id="menu-${event.id}" class="card-menu">
+                                <button onclick="openEditModal('${event.id}')">Rename</button>
+                                <button onclick="deleteEvent('${event.id}')" style="color: var(--danger-color);">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="heatmap-container">
+                        <div class="heatmap">
+                            ${renderHeatmap(event.history)}
+                        </div>
+                    </div>
+
+                    <div class="event-actions">
+                        <button class="btn-log" onclick="logNow('${event.id}')">Log Now</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderHeatmap(history) {
+        const weeksToShow = 52; // Full year
+        const daysToShow = weeksToShow * 7;
+        const activeDays = new Set(history.map(ts => getDayKey(ts)));
+        const squares = [];
+        
+        const today = new Date();
+        // Adjust to the end of the current week (Saturday)
+        const endDate = new Date(today);
+        endDate.setDate(today.getDate() + (6 - today.getDay()));
+
+        for (let i = daysToShow - 1; i >= 0; i--) {
+            const d = new Date(endDate);
+            d.setDate(endDate.getDate() - i);
+            const key = getDayKey(d.getTime());
+            const isActive = activeDays.has(key);
+            const isFuture = d > today;
+            
+            squares.push(`
+                <div class="heatmap-square ${isActive ? 'square-active' : 'square-empty'}" 
+                     style="${isFuture ? 'visibility: hidden;' : ''}"
+                     title="${d.toDateString()}"></div>
+            `);
+        }
+        
+        return squares.join('');
+    }
+
+    function escapeHtml(unsafe) {
+        return unsafe
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
+
+    // --- Actions ---
+    window.toggleMenu = function(e, id) {
+        e.stopPropagation();
+        const menu = document.getElementById(`menu-${id}`);
+        const isActive = menu.classList.contains('active');
+        
+        // Close all other menus
+        document.querySelectorAll('.card-menu').forEach(m => m.classList.remove('active'));
+        
+        if (!isActive) {
+            menu.classList.add('active');
+        }
+    };
+
+    window.openEditModal = function(id) {
+        const event = state.events.find(e => e.id === id);
+        if (event) {
+            document.getElementById('edit-name-input').value = event.name;
+            document.getElementById('edit-event-id').value = id;
+            openModal(editModal);
+            document.querySelectorAll('.card-menu').forEach(m => m.classList.remove('active'));
+        }
+    };
+
+    window.logNow = function(id) {
+        const event = state.events.find(e => e.id === id);
+        if (event) {
+            event.history.unshift(Date.now());
+            saveState();
+        }
+    };
+
+    window.deleteEvent = function(id) {
+        if (confirm('Delete this event and its history?')) {
+            state.events = state.events.filter(e => e.id !== id);
+            saveState();
+        }
+    };
+
+    function addEvent(name) {
+        if (!name.trim()) return;
+        const newEvent = {
+            id: generateId(),
+            name: name.trim(),
+            history: []
+        };
+        state.events.push(newEvent);
+        saveState();
+        closeModal(addModal);
+        document.getElementById('event-name-input').value = '';
+    }
+
+    // --- Modal Logic ---
+    const addModal = document.getElementById('add-modal');
+    const editModal = document.getElementById('edit-modal');
+    const ioModal = document.getElementById('io-modal');
+
+    function openModal(modal) {
+        modal.style.display = 'flex';
+        const input = modal.querySelector('input[type="text"]');
+        if (input) input.focus();
+    }
+
+    function closeModal(modal) {
+        modal.style.display = 'none';
+    }
+
+    document.getElementById('btn-add').onclick = () => openModal(addModal);
+    document.getElementById('btn-cancel-add').onclick = () => closeModal(addModal);
+    document.getElementById('btn-save-event').onclick = () => {
+        const input = document.getElementById('event-name-input');
+        addEvent(input.value);
+    };
+
+    document.getElementById('btn-cancel-edit').onclick = () => closeModal(editModal);
+    document.getElementById('btn-save-rename').onclick = () => {
+        const id = document.getElementById('edit-event-id').value;
+        const newName = document.getElementById('edit-name-input').value;
+        const event = state.events.find(e => e.id === id);
+        if (event && newName.trim()) {
+            event.name = newName.trim();
+            saveState();
+            closeModal(editModal);
+        }
+    };
+
+    document.getElementById('btn-io').onclick = () => openModal(ioModal);
+    document.getElementById('btn-close-io').onclick = () => closeModal(ioModal);
+
+    // Enter key to save
+    document.getElementById('event-name-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            addEvent(e.target.value);
+        }
+    });
+
+    document.getElementById('edit-name-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('btn-save-rename').click();
+        }
+    });
+
+    // --- Import/Export ---
+    document.getElementById('btn-export').onclick = () => {
+        const dataStr = JSON.stringify(state, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        const exportFileDefaultName = `whenilast-backup-${new Date().toISOString().split('T')[0]}.json`;
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+    };
+
+    document.getElementById('import-input').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedState = JSON.parse(event.target.result);
+                if (importedState && Array.isArray(importedState.events)) {
+                    if (confirm('Import data? This will merge with your current list.')) {
+                        // Simple merge by ID to avoid duplicates
+                        const existingIds = new Set(state.events.map(e => e.id));
+                        importedState.events.forEach(importedEvent => {
+                            if (!existingIds.has(importedEvent.id)) {
+                                state.events.push(importedEvent);
+                            } else {
+                                // Merge history for same ID if needed
+                                const local = state.events.find(e => e.id === importedEvent.id);
+                                local.history = [...new Set([...local.history, ...importedEvent.history])].sort((a,b) => b-a);
+                            }
+                        });
+                        saveState();
+                        closeModal(ioModal);
+                        alert('Import successful!');
+                    }
+                } else {
+                    alert('Invalid backup file.');
+                }
+            } catch (err) {
+                alert('Failed to read file.');
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    // Close modals/menus on outside click
+    window.onclick = (event) => {
+        if (event.target === addModal) closeModal(addModal);
+        if (event.target === editModal) closeModal(editModal);
+        if (event.target === ioModal) closeModal(ioModal);
+        
+        if (!event.target.closest('.card-menu-container')) {
+            document.querySelectorAll('.card-menu').forEach(m => m.classList.remove('active'));
+        }
+    };
+
+    // --- Init ---
+    loadState();
     render();
+
+    // Auto-refresh "time ago" every minute
+    setInterval(render, 60000);
 </script>
 
 </body>
 </html>
-  
