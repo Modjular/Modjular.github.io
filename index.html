@@ -73,6 +73,10 @@
             margin-bottom: 1.5rem;
         }
 
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
         @media (max-width: 550px) {
             body { align-items: flex-start; padding: 1.5rem 1rem; }
             .grid { grid-template-columns: 1fr; gap: 1rem; }
@@ -81,6 +85,15 @@
         .section p {
             font-size: 0.875rem;
             color: var(--text-muted);
+        }
+
+        .section ul {
+            list-style: none;
+        }
+
+        .section li {
+            margin-bottom: 0.25rem;
+            font-size: 0.95rem;
         }
 
         .nav-links {
@@ -137,14 +150,24 @@
                     <h2>Background</h2>
                     <p>Intelligent systems, data management theory, and building clean, lightweight, user-centric internal and commercial tools.</p>
                 </div>
+
+                <div class="section full-width">
+                    <h2>Tools</h2>
+                    <ul>
+                        <li><p><a href="tools/20201109_accelerometer.html">Accelerometer</a> Visualize your phone's orientation.</p></li>
+                        <li><p><a href="tools/20260123_jinja_vs_nunjucks.html">Jinja vs Nunjucks</a> Compare Nunjucks and Jinja (via Pyodide) templates.</p></li>
+                        <li><p><a href="tools/20260408_howlongago.html">How Long Ago</a> Simple time tracker web app.</p></li>
+                        <li><p><a href="tools/20260417_soma_solver.html">Soma Solver</a> Define and solve soma cube puzzle configs.</p></li>
+                    </ul>
+                </div>
             </div>
         </main>
 
         <footer>
-            <nav class="nav-links">
+            <!-- <nav class="nav-links">
                 <a class="nav-item" href="/tools">/tools</a>
-                <a class="nav-item" href="/writing">/writing</a>
-            </nav>
+                <a class="nav-item" href="#">/writing</a>
+            </nav> -->
         </footer>
     </div>
 
