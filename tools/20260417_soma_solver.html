@@ -1,0 +1,277 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soma Cube Solver</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #222; color: white; font-family: sans-serif; }
+        #ui { 
+            position: absolute; top: 10px; left: 10px; width: 320px; 
+            background: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 8px;
+        }
+        textarea { 
+            width: 100%; height: 180px; font-family: monospace; 
+            background: #333; color: #0f0; border: 1px solid #555; padding: 5px; box-sizing: border-box;
+        }
+        button { 
+            width: 100%; padding: 10px; margin-top: 10px; cursor: pointer; 
+            background: #4CAF50; color: white; border: none; font-weight: bold; border-radius: 4px;
+        }
+        button:hover { background: #45a049; }
+        button:disabled { background: #666; cursor: not-allowed; }
+        label { font-size: 12px; color: #ccc; }
+        input[type=range] { width: 100%; margin-top: 5px; }
+        #status { margin-top: 10px; font-size: 14px; color: #ffcc00; }
+        #attempts { margin-top: 10px; font-size: 14px; color: #888; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="ui">
+        <h3>Soma Cube Solver DSL</h3>
+        <label>This "DSL" lets you define a target shape that the solver can then solve towards. Target Shape (3 layers of 3x3). Use '#' for fill, '.' for empty. Must equal 27 '#'s.</label>
+        <textarea id="dslInput">
+###
+###
+###
+
+###
+###
+###
+
+###
+###
+###</textarea>
+        <label>Animation Speed (Delay: <span id="delayVal">50</span>ms)</label>
+        <input type="range" id="speedSlider" min="0" max="500" value="50">
+        <button id="solveBtn">Solve / Start Search</button>
+        <div id="status">Ready.</div>
+        <div id="attempts"></div>
+    </div>
+
+    <script>
+        // --- 1. Three.js Setup ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
+        light1.position.set(10, 20, 10);
+        scene.add(light1);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+        camera.position.set(5, 6, 8);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(1, 1, 1);
+        controls.enableDamping = true;
+
+        const pieceColors = [0xff4444, 0xffaa00, 0xffff00, 0x44ff44, 0x4444ff, 0xff44ff, 0x44ffff];
+        const cubeGeo = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+        let pieceMeshes = new THREE.Group();
+        scene.add(pieceMeshes);
+
+        // --- 2. Soma Logic & Orientations ---
+        const basePieces = [
+            [[0,0,0], [1,0,0], [0,1,0]], // V (3)
+            [[0,0,0], [1,0,0], [2,0,0], [0,1,0]], // L (4)
+            [[0,0,0], [1,0,0], [2,0,0], [1,1,0]], // T (4)
+            [[0,1,0], [1,1,0], [1,0,0], [2,0,0]], // Z (4)
+            [[0,0,0], [1,0,0], [0,1,0], [0,0,1]], // Tripod (4)
+            [[0,0,0], [1,0,0], [0,1,0], [1,0,1]], // Left Screw (4)
+            [[0,0,0], [1,0,0], [0,1,0], [1,0,-1]] // Right Screw (4)
+        ];
+
+        // Generate all 24 3D rotations for a piece
+        function getUniqueOrientations(piece) {
+            let uniqueStrs = new Set();
+            let orientations = [];
+            
+            let current = piece;
+            for (let x = 0; x < 4; x++) {
+                current = current.map(p => [p[0], -p[2], p[1]]); // Rot X
+                for (let y = 0; y < 4; y++) {
+                    current = current.map(p => [p[2], p[1], -p[0]]); // Rot Y
+                    for (let z = 0; z < 4; z++) {
+                        current = current.map(p => [-p[1], p[0], p[2]]); // Rot Z
+                        
+                        // Normalize (shift to positive minimums)
+                        let minX = Math.min(...current.map(p => p[0]));
+                        let minY = Math.min(...current.map(p => p[1]));
+                        let minZ = Math.min(...current.map(p => p[2]));
+                        let normalized = current.map(p => [p[0]-minX, p[1]-minY, p[2]-minZ]);
+                        
+                        // Sort to check uniqueness
+                        normalized.sort((a,b) => (a[0]-b[0]) || (a[1]-b[1]) || (a[2]-b[2]));
+                        let str = JSON.stringify(normalized);
+                        if (!uniqueStrs.has(str)) {
+                            uniqueStrs.add(str);
+                            orientations.push(normalized);
+                        }
+                    }
+                }
+            }
+            return orientations;
+        }
+
+        const allOrientations = basePieces.map(p => getUniqueOrientations(p));
+
+        // --- 3. The Solver Engine ---
+        let targetGrid = []; 
+        let placedPieces = []; // { id, blocks: [[x,y,z]...] }
+        let isSolving = false;
+        let stopRequested = false;
+        let delayMs = 50;
+        let attemptCount = 0;
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        function drawState() {
+            scene.remove(pieceMeshes);
+            pieceMeshes = new THREE.Group();
+            
+            placedPieces.forEach(pc => {
+                const mat = new THREE.MeshPhongMaterial({ color: pieceColors[pc.id] });
+                pc.blocks.forEach(b => {
+                    const mesh = new THREE.Mesh(cubeGeo, mat);
+                    mesh.position.set(b[0], b[1], b[2]);
+                    const edges = new THREE.EdgesGeometry(cubeGeo);
+                    mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 })));
+                    pieceMeshes.add(mesh);
+                });
+            });
+            scene.add(pieceMeshes);
+
+            attemptCount++;
+            document.getElementById("attempts").innerText = `Attempts: ${attemptCount}`
+        }
+
+        async function solveDFS(usedPieces) {
+            if (stopRequested) return false;
+
+            // Find first empty required spot based on DSL target
+            let firstEmpty = -1;
+            for (let i = 0; i < targetGrid.length; i++) {
+                if (targetGrid[i] === 1 && !isOccupied(i)) {
+                    firstEmpty = i;
+                    break;
+                }
+            }
+
+            if (firstEmpty === -1) return true; // All target spaces filled!
+
+            // Convert 1D index to 3D coordinate
+            let tx = firstEmpty % 3;
+            let ty = Math.floor(firstEmpty / 3) % 3;
+            let tz = Math.floor(firstEmpty / 9);
+
+            for (let p = 0; p < 7; p++) {
+                if (usedPieces.has(p)) continue;
+
+                for (let orient of allOrientations[p]) {
+                    // Align each block of the orientation to the target cell
+                    for (let block of orient) {
+                        let offsetX = tx - block[0];
+                        let offsetY = ty - block[1];
+                        let offsetZ = tz - block[2];
+
+                        let proposedBlocks = orient.map(b => [b[0]+offsetX, b[1]+offsetY, b[2]+offsetZ]);
+
+                        if (canPlace(proposedBlocks)) {
+                            placedPieces.push({ id: p, blocks: proposedBlocks });
+                            drawState();
+                            if (delayMs > 0) await sleep(delayMs);
+
+                            usedPieces.add(p);
+                            if (await solveDFS(usedPieces)) return true;
+                            
+                            // Backtrack
+                            usedPieces.delete(p);
+                            placedPieces.pop();
+                            drawState();
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function isOccupied(index) {
+            let cx = index % 3, cy = Math.floor(index / 3) % 3, cz = Math.floor(index / 9);
+            return placedPieces.some(pc => pc.blocks.some(b => b[0]===cx && b[1]===cy && b[2]===cz));
+        }
+
+        function canPlace(blocks) {
+            for (let b of blocks) {
+                let [x, y, z] = b;
+                if (x < 0 || x > 2 || y < 0 || y > 2 || z < 0 || z > 2) return false; // Out of 3x3x3 bounds
+                let idx = x + y*3 + z*9;
+                if (targetGrid[idx] !== 1) return false; // Not part of DSL target shape
+                if (isOccupied(idx)) return false; // Overlapping
+            }
+            return true;
+        }
+
+        // --- 4. UI Bindings & Render Loop ---
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            delayMs = parseInt(e.target.value);
+            document.getElementById('delayVal').innerText = delayMs;
+        });
+
+        document.getElementById('solveBtn').addEventListener('click', async () => {
+            if (isSolving) {
+                stopRequested = true;
+                return;
+            }
+            
+            // Parse DSL
+            const dsl = document.getElementById('dslInput').value;
+            const chars = dsl.replace(/[^#.]/g, '');
+            if (chars.length !== 27) {
+                alert(`DSL must represent exactly a 3x3x3 grid (27 characters). Found ${chars.length}.`);
+                return;
+            }
+            
+            targetGrid = chars.split('').map(c => c === '#' ? 1 : 0);
+            const totalBlocks = targetGrid.reduce((a, b) => a + b, 0);
+            if (totalBlocks !== 27) {
+                alert(`Shape must require exactly 27 blocks. You defined ${totalBlocks}.`);
+                return;
+            }
+
+            // UI Setup
+            isSolving = true;
+            stopRequested = false;
+            placedPieces = [];
+            drawState();
+            document.getElementById('solveBtn').innerText = "Stop Search";
+            document.getElementById('solveBtn').style.background = "#f44336";
+            document.getElementById('status').innerText = "Searching...";
+
+            const success = await solveDFS(new Set());
+
+            document.getElementById('solveBtn').innerText = "Solve / Start Search";
+            document.getElementById('solveBtn').style.background = "#4CAF50";
+            document.getElementById('status').innerText = success ? "Solution Found!" : (stopRequested ? "Stopped." : "No solution exists for this shape.");
+            isSolving = false;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

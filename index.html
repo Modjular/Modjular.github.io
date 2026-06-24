@@ -1,190 +1,280 @@
-<html>
-  <title>Portfolio</title>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
-    <link rel="manifest" href="images/site.webmanifest">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anthony Reksoatmodjo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👋</text></svg>" />
     <style>
-      h1,h2,h3,h4 {
-        font-family: 'DM Serif Display', serif;
-      }
-      
-      .cardstock {
-        background-color: #fef9ef;
-      }
-      .container {
-        max-width: 1000;
-      }
-      .project-card:hover{
-        filter: contrast(1.2);
-      }
-      #my-title{
-        cursor: pointer;
-      }
-      #my-title:after {
-        content: '_';
-        font-weight: 900;
-        color: black;
-        opacity: 0;
-        display: inline-block;
-        animation: blink 0.6s cubic-bezier(0.22, 1, 0.36, 1) infinite alternate;
-      }
-
-      @keyframes blink {
-        50% {
-          opacity: 0;
+        :root {
+            --bg: #fafafa;
+            --text: #171717;
+            --text-muted: #666666;
+            --accent: #0066cc;
+            --border: #e5e5e5;
         }
-        100% {
-          opacity: 1;
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #121212;
+                --text: #eaeaea;
+                --text-muted: #a0a0a0;
+                --accent: #4da6ff;
+                --border: #262626;
+            }
         }
-      }
-    </style>
-  </head>
 
-  <body>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <div class="container">
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            padding: 2rem 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
 
-      <!-- Profile picture header -->
+        .card {
+            width: 100%;
+            max-width: 680px;
+        }
 
-      <div id="profile-header">
-        <!-- <div class="card-img" id='bg-canvas'></div> -->
-        <div class="row align-items-center h-100">
-          <div class="col-md-2 offset-md-3 col-xs-1 p-5 p-md-0">
-            <img
-            class="img-thumbnail img-fluid rounded-circle d-block mh-25"
-            alt="Me on a mountain"
-            src="images/image1.jpg"
-            title="Me on a mountain"
-          >
-          </div>
-          <div class="col-md-4 col-xs-1">
-            <h2 class="mx-auto align-text-bottom">Anthony Reksoatmodjo</h2>
-            <h4 class="mx-auto text-muted" id="my-title">Software Engineer</h4>
-          </div>
-        </div>
-      </div>
+        header {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
 
-
-      <!-- Introduction -->
-
-      <p class="lead"><span>Hi, I&rsquo;m a student at the University of California Irvine. I study Computer Science,
-        with a specialization in </span><span>
-          <a href="https://www.ics.uci.edu/ugrad/degrees/degree_cs.php">Intelligent Systems</a>.
-          </span><span>&nbsp;I&rsquo;m into UI and Frontend, but low level graphics and algorithms are cool too.
-        In my spare time, I play guitar, and watch unhealthy amounts of Youtube.
-        I also enjoy answering random questions on the official <a href="https://discourse.processing.org/">Processing discourse</a>.
-      </span></p>
-    
-    <br><hr/><br>
-
-    <h3>Tools and Projects</h3><br>
-    
-    <div class="row">
-      <div class="col-md-4 col-sm-6">
-        <a href="https://www.openprocessing.org/sketch/570537">
-          <div class="card project-card bg-dark mb-4">
-            <img class="card-img" src="images/visualThumbnail570537@2x.png" />
-          </div>
-        </a>
-      </div>
-      <div class="col-md-4 col-sm-6">
-        <a href="https://www.openprocessing.org/sketch/577977">
-          <div class="card project-card bg-dark mb-4">
-            <img class="card-img" src="images/visualThumbnail577977@2x.png" />
-          </div>
-        </a>
-      </div>
-      <div class="col-md-4 col-sm-6">
-        <a href="accel_test.html">
-          <div class="card project-card bg-dark mb-4">
-            <img class="card-img" src="images/lets-accel.gif" />
-          </div>
-        </a>
-      </div>
-      <div class="col-md-4 col-sm-6">
-        <a href="https://modjular.github.io/CS112-OctreeColorQuantizer/">
-          <div class="card project-card bg-dark mb-4">
-            <img class="card-img" src="images/donut_octree.jpeg" />
-          </div>
-        </a>
-      </div>
-      <div class="col-md-4 col-sm-6">
-        <a href="https://modjular.github.io/boringAI/final.html">
-          <div class="card project-card bg-dark mb-4">
-            <img class="card-img" src="images/Returns_PPO_9block.png" />
-          </div>
-        </a>
-      </div>
-      <div class="col-md-4 col-sm-6">
-        <a href="https://www.openprocessing.org/sketch/566877">
-          <div class="card project-card bg-dark text-white mb-4">
-            <img class="card-img" src="images/visualThumbnail566877@2x.png" />
-          </div>
-        </a>
-      </div>
-    </div>
-
-
+        h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
+        h2 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
         
-    <br/><hr/><br>
+        .meta {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
 
-    <h3>Other Work</h3><br>
+        .meta a { color: inherit; text-decoration: none; }
+        .meta a:hover { text-decoration: underline; }
 
-    <div class="row">
-      <div class="col-sm-6 col-lg-3">
-        <div class="card mb-3">
-          <div class="card-body cardstock">
-            <h5 class="card-title"><a href="https://github.com/Modjular" class="card-link">Github</a></h5>
-            <p class="card-text">Various Unity projects and webapps</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-lg-3">
-        <div class="card mb-3">
-          <div class="card-body cardstock">
-            <h5 class="card-title"><a href="https://www.openprocessing.org/user/77286#sketches" class="card-link">Openprocesing</a></h5>
-            <p class="card-text">Take a look at the rest of my sketches on Openprocessing</p>
-          </div>
-        </div>
-      </div>      
-      <div class="col-sm-6 col-lg-3">
-        <div class="card mb-3">
-          <div class="card-body cardstock">
-            <h5 class="card-title"><a href="https://discourse.processing.org" class="card-link">Discourse</a></h5>
-            <p class="card-text">Read some of the advice I give on the Processing forums</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-lg-3">
-        <div class="card mb-3">
-          <div class="card-body cardstock">
-            <h5 class="card-title"><a href="https://modjular.itch.io/" class="card-link">Itch.io</a></h5>
-            <p class="card-text">Play some of the games I've made in VGDC</p>
-          </div>
-        </div>
-      </div>     
+        .bio {
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        @media (max-width: 550px) {
+            body { align-items: flex-start; padding: 1.5rem 1rem; }
+            .grid { grid-template-columns: 1fr; gap: 1rem; }
+        }
+
+        .section p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .section ul {
+            list-style: none;
+        }
+
+        .section li {
+            margin-bottom: 0.25rem;
+            font-size: 0.95rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+
+        a {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <header>
+            <h1>Anthony Reksoatmodjo</h1>
+            <div class="meta">
+                <span>Huntington Beach, CA</span> &middot; 
+                <a href="linkedin.com/anthony-reksoatmodjo" target="_blank" rel="noopener">Linkedin</a> &middot; 
+                <a href="https://github.com/modjular" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </header>
+
+        <main>
+            <section class="bio">
+                <p style="display: inline-block; vertical-align: middle;">
+                  I build high-performance software at the convergence of full-stack engineering, scientific computing, and physical hardware. Currently scaling cloud image-quantification pipelines and automation tools for TB-scale microscopy data at
+                  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAilBMVEVHcEy4lnLBzdiEg4JrpG9ml3CrtLtgc4CTXo48Y4B5vW99hnxKan5ffnL//4E7YoA9Y4A9ZIBdcn5McYq3wcu4wsxshZlyh5iRqLm5xtB1go6Mk5kAAABkg5qLkpiJXzE0YYAxX4CjuMdniKAtXYDF0d1GcItKcox1xGxPfGhbpGlXfJe2xdKHorbaAkVtAAAAIHRSTlMAB/sb1b1KOg+U0Cq/rgTcxHsp0YmWiV38yik3BtM2CgjsIUQAAACLSURBVBiVTY5XEsMwCERxVZzee2Kwmp1y/+sFydEMy9e+WRYAADLFAqGNIUIJ1ojYSMDeyBVlEGkJkzhBDYbIfKheZT8LYMWezGKoymkfE8Q+dt5TBRHJG8p57yXInHfuCHDYJ7JzXutzZ21ej2D71lp33cfmthjJKQKO1Gnp+vgyuBSiub09/1/8AP52DK85F2EvAAAAAElFTkSuQmCC" 
+                      alt="Translucence Biosystems logo" 
+                      style="width: 16px; height: 16px; vertical-align: middle; margin: 0 0 2px 4px;" />
+                  <a href="https://translucencebio.com" target="_blank" rel="noopener noreferrer">Translucence Biosystems</a>.
+                </p>
+            </section>
+
+            <div class="grid">
+                <div class="section">
+                    <h2>Scientific Computing</h2>
+                    <p>High-throughput image pipelines, custom volumetric data adapters, and high-performance desktop stitching applications processing datasets in the TBs.</p>
+                </div>
+                
+                <div class="section">
+                    <h2>Full-Stack & Systems</h2>
+                    <p>Distributed microservices, web-based cluster/job monitoring, and performance optimization across Python, C++, and modern frontend tech.</p>
+                </div>
+
+                <div class="section">
+                    <h2>Hardware Integration</h2>
+                    <p>Embedded C development (Arduino, STM32) for physical protocol automation. Nutation, incubation and reagent switching, all in one.</p>
+                </div>
+
+                <div class="section">
+                    <h2>Background</h2>
+                    <p>Intelligent systems, data management theory, and building clean, lightweight, user-centric internal and commercial tools.</p>
+                </div>
+
+                <div class="section full-width">
+                    <h2>Tools</h2>
+                    <ul>
+                        <li><p><a href="tools/20201109_accelerometer.html">Accelerometer</a> Visualize your phone's orientation.</p></li>
+                        <li><p><a href="tools/20260123_jinja_vs_nunjucks.html">Jinja vs Nunjucks</a> Compare Nunjucks and Jinja (via Pyodide) templates.</p></li>
+                        <li><p><a href="tools/20260408_howlongago.html">How Long Ago</a> Simple time tracker web app.</p></li>
+                        <li><p><a href="tools/20260417_soma_solver.html">Soma Solver</a> Define and solve soma cube puzzle configs.</p></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <!-- <nav class="nav-links">
+                <a class="nav-item" href="/tools">/tools</a>
+                <a class="nav-item" href="#">/writing</a>
+            </nav> -->
+        </footer>
     </div>
 
-    <!-- Footer -->
-    <br><hr>
+</body>
 
-    <p class="text-muted">
-      <span>
-        Any email that does not contain interesting questions or romantic
-        intent will be ignored: </span><span>
-        <a href="mailto:areksoat@uci.edu">areksoat@uci.edu</a>
-      </span>
-    </p>
+<script>
+(async function generateProgressiveBlueNoise() {
+    // Configuration
+    const SIZE = 64; 
+    const TOTAL_PIXELS = SIZE * SIZE;
+    const ITERATIONS = 64; 
+    const PIXELS_PER_ITER = 16;
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
-    <!-- <script src="https://cdn.jsdelivr.net/npm/p5@1.1.9/lib/p5.js"></script> -->
-    <script src="sketch.js"></script>
-  </body>
+    // Create an off-screen canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const ctx = canvas.getContext('2d');
+
+    // Track points and available coordinates
+    const points = [];
+    const available = [];
+    for (let x = 0; x < SIZE; x++) {
+        for (let y = 0; y < SIZE; y++) {
+            available.push({ x, y });
+        }
+    }
+
+    const pixelAges = new Uint8Array(TOTAL_PIXELS);
+    
+    // Toroidal (wrap-around) distance function
+    function getToroidalDistSq(x1, y1, x2, y2) {
+        let dx = Math.abs(x1 - x2);
+        let dy = Math.abs(y1 - y2);
+        dx = Math.min(dx, SIZE - dx);
+        dy = Math.min(dy, SIZE - dy);
+        return dx * dx + dy * dy;
+    }
+
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    for (let i = 0; i < ITERATIONS; i++) {
+
+        // 1. Age up all existing pixels on the canvas
+        for (let j = 0; j < TOTAL_PIXELS; j++) {
+            if (pixelAges[j] > 0) {
+                pixelAges[j]++; 
+            }
+        }
+
+        // 2. Pick and place new pixels for this iteration
+        for (let p = 0; p < PIXELS_PER_ITER; p++) {
+            if (available.length === 0) break;
+
+            let bestIndex = 0;
+            let maxDist = -1;
+
+            const numCandidates = Math.min(15, available.length);
+            for (let c = 0; c < numCandidates; c++) {
+                const randIdx = Math.floor(Math.random() * available.length);
+                const candidate = available[randIdx];
+
+                let minDist = Infinity;
+                for (let pt = 0; pt < points.length; pt++) {
+                    const d = getToroidalDistSq(candidate.x, candidate.y, points[pt].x, points[pt].y);
+                    if (d < minDist) minDist = d;
+                }
+
+                if (minDist > maxDist || points.length === 0) {
+                    maxDist = minDist;
+                    bestIndex = randIdx;
+                }
+            }
+
+            const winner = available[bestIndex];
+            points.push(winner);
+            available.splice(bestIndex, 1);
+
+            // Set the brand new pixel's age/opacity to 1
+            // We calculate its 1D array index using (y * width + x)
+            pixelAges[winner.y * SIZE + winner.x] = 1;
+        }
+
+        const imgData = ctx.createImageData(SIZE, SIZE);
+        for (let j = 0; j < TOTAL_PIXELS; j++) {
+            // imgData.data is a flat array of [R, G, B, A, R, G, B, A...]
+            imgData.data[j * 4 + 0] = 128; // Red
+            imgData.data[j * 4 + 1] = 128; // Green
+            imgData.data[j * 4 + 2] = 128; // Blue
+            imgData.data[j * 4 + 3] = pixelAges[j]; // Alpha (Maps exactly from 0 to 64)
+        }
+        ctx.putImageData(imgData, 0, 0);
+
+        document.body.style.backgroundImage = `url(${canvas.toDataURL()})`;
+        document.body.style.backgroundRepeat = 'repeat';
+
+        const progress = i / (ITERATIONS - 1); 
+        const delay = (progress * progress * 1000); // Quadratic slowdown
+
+        await sleep(delay); 
+    }
+})();
+</script>
 </html>
