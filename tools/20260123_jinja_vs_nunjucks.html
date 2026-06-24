@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nunjucks vs Jinja2 Playground</title>
+    <meta name="description" content="Compare Nunjucks and Jinja2 templates side-by-side with custom filters.">
+    
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --panel-bg: #ffffff;
+            --border-color: #d1d5db;
+            --primary-color: #3e8137; /* Nunjucks Green */
+            --secondary-color: #b73838; /* Jinja Red-ish */
+            --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            --font-sans: system-ui, -apple-system, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-sans);
+            background: var(--bg-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #2d3748;
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--primary-color);
+        }
+
+        header h1 { margin: 0; font-size: 1.2rem; }
+        header small { opacity: 0.8; font-weight: normal; }
+
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            height: 100%;
+            min-height: 0; 
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .panel-header {
+            background: #e2e8f0;
+            padding: 0 1rem; /* Padding handled by tabs now */
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #4a5568;
+            padding: 0.5rem 0;
+        }
+
+        .panel-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden; 
+        }
+
+        /* Tab System */
+        .tab-nav {
+            display: flex;
+            height: 100%;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            padding: 0 1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #718096;
+            height: 100%;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover { background: #edf2f7; color: #2d3748; }
+        
+        /* Active Tab Styling - Dynamic based on panel color */
+        .panel[data-type="nunjucks"] .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        .panel[data-type="jinja"] .tab-btn.active {
+            color: var(--secondary-color);
+            border-bottom-color: var(--secondary-color);
+        }
+
+        .tab-pane {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+        .tab-pane.active { display: block; }
+
+
+        textarea, pre {
+            width: 100%;
+            height: 100%;
+            border: none;
+            resize: none;
+            padding: 1rem;
+            margin: 0;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.5;
+            outline: none;
+        }
+
+        textarea { background: #fafafa; color: #1a202c; }
+        textarea:focus { background: #fff; }
+
+        pre { 
+            /* overflow: auto; */
+            white-space: pre-wrap; 
+            margin: 0;
+        }
+
+        /* Status Colors */
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #cbd5e0;
+            margin-left: auto; /* Push to right */
+        }
+        .loading { color: #d69e2e; }
+        .ready { color: var(--primary-color); }
+        .error { color: #e53e3e; background: #fff5f5; border-color: #feb2b2; }
+
+        #outputNunjucks { color: var(--primary-color); }
+        #outputJinja { color: var(--secondary-color); }
+
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(4, 300px);
+                overflow-y: auto;
+            }
+        }
+    </style>
+
+    <script src="https://mozilla.github.io/nunjucks/files/nunjucks.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.3/full/pyodide.js"></script>
+</head>
+<body>
+
+<header>
+    <h1>Template Playground</h1>
+    <small>Comparing <strong>Nunjucks</strong> (JS) vs <strong>Jinja2</strong> (Python)</small>
+</header>
+
+<main>
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title" style="padding-left: 1rem;">Template Source</span>
+            <span class="status-badge">Input</span>
+        </div>
+        <div class="panel-content">
+            <textarea id="inputTemplate" spellcheck="false" placeholder="Enter template here..."></textarea>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title" style="padding-left: 1rem;">Context Data (JSON)</span>
+            <span class="status-badge">Input</span>
+        </div>
+        <div class="panel-content">
+            <textarea id="inputData" spellcheck="false" placeholder='{ "key": "value" }'></textarea>
+        </div>
+    </div>
+
+    <div class="panel" data-type="nunjucks" style="border-top: 4px solid var(--primary-color);">
+        <div class="panel-header">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab(this, 'nunjucks-out')">Output</button>
+                <button class="tab-btn" onclick="switchTab(this, 'nunjucks-code')">Custom JS</button>
+            </div>
+            <span class="status-badge ready">Nunjucks Ready</span>
+        </div>
+        <div class="panel-content">
+            <div id="nunjucks-out" class="tab-pane active">
+                <pre id="outputNunjucks"></pre>
+            </div>
+            <div id="nunjucks-code" class="tab-pane">
+                <textarea id="inputNunjucksCode" spellcheck="false" placeholder="// env.addFilter('myFilter', ...);"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" data-type="jinja" style="border-top: 4px solid var(--secondary-color);">
+        <div class="panel-header">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab(this, 'jinja-out')">Output</button>
+                <button class="tab-btn" onclick="switchTab(this, 'jinja-code')">Custom Python</button>
+            </div>
+            <span id="jinjaStatus" class="status-badge loading">Loading Python...</span>
+        </div>
+        <div class="panel-content">
+            <div id="jinja-out" class="tab-pane active">
+                <pre id="outputJinja">Initializing Pyodide environment...</pre>
+            </div>
+            <div id="jinja-code" class="tab-pane">
+                <textarea id="inputJinjaCode" spellcheck="false" placeholder="# def my_filter(v): ..."></textarea>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    // Inspiration
+    // https://www.dainiak.com/jinja2-playground/
+    // https://github.com/robb-j/nunjucks-editor
+    // Gemini 3 Pro
+
+    // --- Configuration ---
+    const STORAGE_KEY_TEMPLATE = 'playground_template';
+    const STORAGE_KEY_DATA = 'playground_data';
+    const STORAGE_KEY_JS_CODE = 'playground_js_code';
+    const STORAGE_KEY_PY_CODE = 'playground_py_code';
+
+    const DEFAULT_TEMPLATE = `Hello {{ name }}!
+
+Custom Filter Test:
+Double Price: {{ 50 | double }}
+
+List:
+{% for item in items -%}
+  - {{ item }}
+{% endfor %}`;
+
+    const DEFAULT_DATA = `{
+  "name": "Developer",
+  "items": ["Apple", "Banana", "Cherry"]
+}`;
+
+    const DEFAULT_JS_CODE = `// The 'env' variable is available here.
+// Add your custom Nunjucks filters:
+
+env.addFilter('double', function(n) {
+  return n * 2;
+});`;
+
+    const DEFAULT_PY_CODE = `# The 'env' variable is available here.
+# Define functions and register them.
+
+def double_filter(n):
+    return n * 2
+
+# Register the filter
+env.filters['double'] = double_filter`;
+
+    // --- DOM Elements ---
+    const elTemplate = document.getElementById('inputTemplate');
+    const elData = document.getElementById('inputData');
+    
+    // Nunjucks
+    const elOutNunjucks = document.getElementById('outputNunjucks');
+    const elCodeNunjucks = document.getElementById('inputNunjucksCode');
+    
+    // Jinja
+    const elOutJinja = document.getElementById('outputJinja');
+    const elCodeJinja = document.getElementById('inputJinjaCode');
+    const elJinjaStatus = document.getElementById('jinjaStatus');
+
+    // --- State ---
+    let pyodide = null;
+    let isJinjaReady = false;
+
+    // --- Initialization ---
+    async function init() {
+        // Load LocalStorage
+        elTemplate.value = localStorage.getItem(STORAGE_KEY_TEMPLATE) || DEFAULT_TEMPLATE;
+        elData.value = localStorage.getItem(STORAGE_KEY_DATA) || DEFAULT_DATA;
+        elCodeNunjucks.value = localStorage.getItem(STORAGE_KEY_JS_CODE) || DEFAULT_JS_CODE;
+        elCodeJinja.value = localStorage.getItem(STORAGE_KEY_PY_CODE) || DEFAULT_PY_CODE;
+
+        // Add Listeners
+        const inputs = [elTemplate, elData, elCodeNunjucks, elCodeJinja];
+        inputs.forEach(el => el.addEventListener('input', debounce(renderAll, 500)));
+
+        // Initial Nunjucks Render
+        renderNunjucks();
+
+        // Load Python/Jinja
+        try {
+            pyodide = await loadPyodide();
+            await pyodide.loadPackage("jinja2");
+            
+            // Define Python Rendering Logic
+            pyodide.runPython(`
+                import json
+                from jinja2 import Template, Environment
+
+                def render_jinja(template_str, json_data, custom_code):
+                    try:
+                        data = json.loads(json_data)
+                        
+                        # Create a fresh environment
+                        env = Environment()
+                        
+                        # Create a local scope for execution with 'env' pre-populated
+                        execution_scope = { 'env': env, 'json': json }
+                        
+                        # Execute user's custom filter code
+                        try:
+                            exec(custom_code, execution_scope)
+                        except Exception as e:
+                            return f"Custom Filter Error:\\n{e}"
+
+                        # Render template
+                        t = env.from_string(template_str)
+                        return t.render(**data)
+                    except Exception as e:
+                        return f"Jinja2 Render Error:\\n{e}"
+            `);
+
+            isJinjaReady = true;
+            elJinjaStatus.textContent = "Jinja2 Ready";
+            elJinjaStatus.classList.remove("loading");
+            elJinjaStatus.classList.add("ready");
+            
+            renderJinja();
+        } catch (err) {
+            elOutJinja.textContent = "Failed to load Pyodide: " + err.message;
+            elJinjaStatus.textContent = "System Error";
+            elJinjaStatus.classList.add("error");
+        }
+    }
+
+    // --- Tab Logic ---
+    window.switchTab = function(btn, targetId) {
+        const parentHeader = btn.closest('.panel-header');
+        const parentContent = parentHeader.nextElementSibling;
+        
+        // Toggle Buttons
+        parentHeader.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Toggle Content
+        parentContent.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById(targetId).classList.add('active');
+    }
+
+    // --- Rendering Logic ---
+
+    function renderAll() {
+        // Persistence
+        localStorage.setItem(STORAGE_KEY_TEMPLATE, elTemplate.value);
+        localStorage.setItem(STORAGE_KEY_DATA, elData.value);
+        localStorage.setItem(STORAGE_KEY_JS_CODE, elCodeNunjucks.value);
+        localStorage.setItem(STORAGE_KEY_PY_CODE, elCodeJinja.value);
+
+        renderNunjucks();
+        renderJinja();
+    }
+
+    function renderNunjucks() {
+        const tmpl = elTemplate.value;
+        const dataStr = elData.value;
+        const customCode = elCodeNunjucks.value;
+        
+        try {
+            const data = JSON.parse(dataStr);
+            
+            // Create fresh env
+            const env = new nunjucks.Environment(null, { autoescape: false });
+
+            // Inject Custom JS
+            // We create a Function that takes 'env' as an argument
+            try {
+                const addFilters = new Function('env', customCode);
+                addFilters(env);
+            } catch (err) {
+                throw new Error("Custom Filter JS Error:\n" + err.message);
+            }
+
+            // Render
+            const res = env.renderString(tmpl, data);
+            
+            elOutNunjucks.textContent = res;
+            elOutNunjucks.classList.remove('error');
+        } catch (e) {
+            elOutNunjucks.textContent = e.toString();
+            elOutNunjucks.classList.add('error');
+        }
+    }
+
+    async function renderJinja() {
+        if (!isJinjaReady) return;
+
+        const tmpl = elTemplate.value;
+        const dataStr = elData.value;
+        const customCode = elCodeJinja.value;
+
+        try {
+            JSON.parse(dataStr); 
+        } catch (e) {
+            elOutJinja.textContent = "Data Error: Invalid JSON format";
+            elOutJinja.classList.add('error');
+            return;
+        }
+
+        try {
+            // Pass variables to Python scope
+            pyodide.globals.set("js_tmpl", tmpl);
+            pyodide.globals.set("js_data", dataStr);
+            pyodide.globals.set("js_code", customCode);
+            
+            const result = pyodide.runPython(`render_jinja(js_tmpl, js_data, js_code)`);
+            
+            elOutJinja.textContent = result;
+            
+            if (result.includes("Error:")) {
+                elOutJinja.classList.add('error');
+            } else {
+                elOutJinja.classList.remove('error');
+            }
+        } catch (e) {
+            elOutJinja.textContent = "Python Bridge Error: " + e.message;
+            elOutJinja.classList.add('error');
+        }
+    }
+
+    // --- Utilities ---
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+    }
+
+    init();
+
+</script>
+</body>
+</html>
