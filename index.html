@@ -180,99 +180,78 @@
 
 <script>
 (async function generateProgressiveBlueNoise() {
-    // Configuration
-    const SIZE = 64; 
-    const TOTAL_PIXELS = SIZE * SIZE;
-    const ITERATIONS = 64; 
-    const PIXELS_PER_ITER = 16;
+    const PIXELS_PER_ITERATION = 29
+    const CANDIDATES_PER_ITERATION = 51
 
-    // Create an off-screen canvas
     const canvas = document.createElement('canvas');
-    canvas.width = SIZE;
-    canvas.height = SIZE;
+    canvas.width = canvas.height = 64;
     const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(64, 64);
 
-    // Track points and available coordinates
+    // Bulk-fill the shared memory buffer with RGB 128 and Alpha 0 via a 32-bit view
+    new Uint32Array(imgData.data.buffer).fill(0x00808080);
+
+    const available = Array.from({ length: 4096 }, (_, i) => i);
     const points = [];
-    const available = [];
-    for (let x = 0; x < SIZE; x++) {
-        for (let y = 0; y < SIZE; y++) {
-            available.push({ x, y });
-        }
-    }
+    const ages = new Uint8Array(4096);
 
-    const pixelAges = new Uint8Array(TOTAL_PIXELS);
-    
-    // Toroidal (wrap-around) distance function
-    function getToroidalDistSq(x1, y1, x2, y2) {
-        let dx = Math.abs(x1 - x2);
-        let dy = Math.abs(y1 - y2);
-        dx = Math.min(dx, SIZE - dx);
-        dy = Math.min(dy, SIZE - dy);
-        return dx * dx + dy * dy;
-    }
+    document.body.style.backgroundRepeat = 'repeat';
 
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    for (let i = 0; i < 64; i++) {
+        
+        // 4. Pick and place
+        for (let p = 0; p < PIXELS_PER_ITERATION; p++) {
+            if (!available.length) break;
 
-    for (let i = 0; i < ITERATIONS; i++) {
+            let bestIdx = 0, maxDist = -1;
+            let numCands = Math.min(CANDIDATES_PER_ITERATION, available.length);
 
-        // 1. Age up all existing pixels on the canvas
-        for (let j = 0; j < TOTAL_PIXELS; j++) {
-            if (pixelAges[j] > 0) {
-                pixelAges[j]++; 
-            }
-        }
-
-        // 2. Pick and place new pixels for this iteration
-        for (let p = 0; p < PIXELS_PER_ITER; p++) {
-            if (available.length === 0) break;
-
-            let bestIndex = 0;
-            let maxDist = -1;
-
-            const numCandidates = Math.min(15, available.length);
-            for (let c = 0; c < numCandidates; c++) {
-                const randIdx = Math.floor(Math.random() * available.length);
-                const candidate = available[randIdx];
+            for (let c = 0; c < numCands; c++) {
+                let randIdx = Math.random() * available.length | 0;
+                let cand = available[randIdx];
+                
+                // Bitwise coordinate extraction relies on 64x64 image
+                let cx = cand & 63, cy = cand >> 6; 
 
                 let minDist = Infinity;
-                for (let pt = 0; pt < points.length; pt++) {
-                    const d = getToroidalDistSq(candidate.x, candidate.y, points[pt].x, points[pt].y);
+                for (let pt of points) {
+                    let dx = Math.abs(cx - (pt & 63));
+                    let dy = Math.abs(cy - (pt >> 6));
+                    
+                    // Toroidal logic (Math.min(dx, 64 - dx))
+                    dx = dx > 32 ? 64 - dx : dx;
+                    dy = dy > 32 ? 64 - dy : dy;
+                    
+                    let d = dx * dx + dy * dy;
                     if (d < minDist) minDist = d;
                 }
 
-                if (minDist > maxDist || points.length === 0) {
+                if (minDist > maxDist || !points.length) {
                     maxDist = minDist;
-                    bestIndex = randIdx;
+                    bestIdx = randIdx;
                 }
             }
 
-            const winner = available[bestIndex];
+            let winner = available[bestIdx];
             points.push(winner);
-            available.splice(bestIndex, 1);
-
-            // Set the brand new pixel's age/opacity to 1
-            // We calculate its 1D array index using (y * width + x)
-            pixelAges[winner.y * SIZE + winner.x] = 1;
+            
+            // O(1) Swap-and-pop removal
+            available[bestIdx] = available[available.length - 1];
+            available.pop();
+            
+            ages[winner] = 1;
         }
 
-        const imgData = ctx.createImageData(SIZE, SIZE);
-        for (let j = 0; j < TOTAL_PIXELS; j++) {
-            // imgData.data is a flat array of [R, G, B, A, R, G, B, A...]
-            imgData.data[j * 4 + 0] = 128; // Red
-            imgData.data[j * 4 + 1] = 128; // Green
-            imgData.data[j * 4 + 2] = 128; // Blue
-            imgData.data[j * 4 + 3] = pixelAges[j]; // Alpha (Maps exactly from 0 to 64)
+        for (let j = 0; j < 4096; j++) {
+            if (ages[j]) {
+                imgData.data[j * 4 + 3] = ages[j]++; 
+            }
         }
+        
         ctx.putImageData(imgData, 0, 0);
-
         document.body.style.backgroundImage = `url(${canvas.toDataURL()})`;
-        document.body.style.backgroundRepeat = 'repeat';
 
-        const progress = i / (ITERATIONS - 1); 
-        const delay = (progress * progress * 1000); // Quadratic slowdown
-
-        await sleep(delay); 
+        await new Promise(r => setTimeout(r, (i / 63) ** 2 * 1000)); // Quadratic easing
     }
 })();
 </script>
