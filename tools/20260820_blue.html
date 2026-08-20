@@ -9,41 +9,85 @@
       --bg: #121212;
       --fg: #e0e0e0;
       --accent: #3b82f6;
-      --surface: #1e1e1e;
+      --surface: #1e1e1ecc;
     }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--fg);
+    html, body {
       margin: 0;
-      padding: 1rem;
-      display: flex;
-      justify-content: center;
-    }
-    .container {
+      padding: 0;
       width: 100%;
-      max-width: 600px;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: var(--fg);
+    }
+    #viewport {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+      cursor: grab;
+    }
+    #viewport.dragging {
+      cursor: grabbing;
+    }
+    .overlay {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      width: 280px;
+      max-width: calc(100vw - 2rem);
+      background: var(--surface);
+      backdrop-filter: blur(8px);
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      z-index: 10;
+      overflow: hidden;
+    }
+    .overlay-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .overlay-header h1 {
+      font-size: 1rem;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    .overlay-toggle {
+      background: none;
+      border: none;
+      color: var(--fg);
+      font-size: 1rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0.25rem;
+    }
+    .overlay-body {
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: 1rem;
+      padding: 0 1rem 1rem;
     }
-    h1 {
-      font-size: 1.5rem;
-      margin: 0;
-      text-align: center;
-      letter-spacing: -0.025em;
+    .overlay.collapsed .overlay-body {
+      display: none;
     }
     .control-group {
-      background: var(--surface);
-      padding: 1rem;
+      background: #ffffff0d;
+      padding: 0.75rem;
       border-radius: 8px;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.6rem;
     }
     label {
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       display: flex;
       justify-content: space-between;
     }
@@ -53,50 +97,71 @@
     }
     input[type=file] {
       width: 100%;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: var(--fg);
     }
-    canvas {
+    button.action {
       width: 100%;
-      height: auto;
-      border-radius: 8px;
-      background: #000;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      padding: 0.6rem;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button.action:disabled {
+      background: #3b4b6b;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .hint {
+      font-size: 0.75rem;
+      color: #9ca3af;
     }
     .status {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #9ca3af;
-      text-align: center;
-      min-height: 1.2rem;
+      min-height: 1.1rem;
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <div class="control-group">
-    <input type="file" id="upload" accept="image/*">
-  </div>
-  
-  <div class="control-group">
-    <label for="scale">
-      <span>Noise Scale</span>
-      <span id="scale-val">1.00</span>
-    </label>
-    <input type="range" id="scale" min="0" max="2" step="0.05" value="1.0">
-  </div>
+<canvas id="viewport"></canvas>
 
-  <div class="control-group">
-    <label for="stretchX">
-      <span>Noise Stretch (Run Length)</span>
-      <span id="stretch-val">1.0x</span>
-    </label>
-    <input type="range" id="stretchX" min="1" max="10" step="0.5" value="1.0">
+<div class="overlay" id="overlay">
+  <div class="overlay-header" id="overlayHeader">
+    <h1>Blue Noise Dither</h1>
+    <button class="overlay-toggle" id="overlayToggle" aria-label="Toggle panel">&minus;</button>
   </div>
-  
-  <div class="status" id="status">Initializing Blue Noise texture...</div>
-  
-  <canvas id="canvas"></canvas>
+  <div class="overlay-body">
+    <div class="control-group">
+      <input type="file" id="upload" accept="image/*">
+    </div>
+
+    <div class="control-group">
+      <label for="scale">
+        <span>Noise Scale</span>
+        <span id="scale-val">1.00</span>
+      </label>
+      <input type="range" id="scale" min="0" max="2" step="0.05" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <label for="stretchX">
+        <span>Noise Stretch (Run Length)</span>
+        <span id="stretch-val">1.0x</span>
+      </label>
+      <input type="range" id="stretchX" min="1" max="10" step="0.5" value="1.0">
+    </div>
+
+    <button class="action" id="download" disabled>Download PNG</button>
+
+    <div class="status" id="status">Initializing Blue Noise texture...</div>
+    <div class="hint">Drag to pan &middot; scroll to zoom &middot; double-click to fit</div>
+  </div>
 </div>
 
 <script>
@@ -108,10 +173,10 @@
         const N = SIZE * SIZE;
         const noise = new Float32Array(N);
         const filled = new Uint8Array(N);
-        
+
         const sigma = 1.9;
         const lut = new Float32Array(N);
-        
+
         for(let y = 0; y < SIZE; y++) {
             for(let x = 0; x < SIZE; x++) {
                 let dx = x > SIZE/2 ? SIZE - x : x;
@@ -119,7 +184,7 @@
                 lut[y * SIZE + x] = Math.exp(-(dx*dx + dy*dy) / (sigma * sigma));
             }
         }
-        
+
         let px = Math.floor(Math.random() * SIZE);
         let py = Math.floor(Math.random() * SIZE);
         filled[py * SIZE + px] = 1;
@@ -137,17 +202,17 @@
         for (let i = 1; i < N; i++) {
             let minE = Infinity;
             let minIdx = -1;
-            
+
             for (let j = 0; j < N; j++) {
                 if (filled[j] === 0 && energy[j] < minE) {
                     minE = energy[j];
                     minIdx = j;
                 }
             }
-            
+
             filled[minIdx] = 1;
             noise[minIdx] = i / N;
-            
+
             let cx = minIdx % SIZE;
             let cy = Math.floor(minIdx / SIZE);
             for(let j = 0; j < N; j++) {
@@ -167,26 +232,26 @@
         if (e.data.type === 'init') {
             noiseTex = generateBlueNoise();
             self.postMessage({ type: 'ready' });
-        } 
+        }
         else if (e.data.type === 'process') {
             const { imageData, scale, stretchX } = e.data;
             const data = imageData.data;
             const width = imageData.width;
             const height = imageData.height;
-            
+
             const scaleVal = scale * 255;
-            
+
             for (let y = 0; y < height; y++) {
                 const ny = (y & 63) << 6;
                 for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) << 2;
-                    
+
                     // Scale X coordinates down before modulo tile wrapping
                     const nx = Math.floor(x / stretchX) & 63;
-                    
+
                     const bn = noiseTex[ny + nx];
                     const offset = (bn - 0.5) * scaleVal;
-                    
+
                     data[idx]   = (data[idx]   + offset) > 127 ? 255 : 0;
                     data[idx+1] = (data[idx+1] + offset) > 127 ? 255 : 0;
                     data[idx+2] = (data[idx+2] + offset) > 127 ? 255 : 0;
@@ -201,11 +266,17 @@
   const blob = new Blob([workerCode], { type: 'application/javascript' });
   const worker = new Worker(URL.createObjectURL(blob));
 
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  
-  const offscreenCanvas = document.createElement('canvas');
-  const offscreenCtx = offscreenCanvas.getContext('2d');
+  // Off-screen source canvas: holds the original uploaded image at native size.
+  const sourceCanvas = document.createElement('canvas');
+  const sourceCtx = sourceCanvas.getContext('2d');
+
+  // Off-screen result canvas: holds the latest dithered output at native size.
+  const resultCanvas = document.createElement('canvas');
+  const resultCtx = resultCanvas.getContext('2d');
+
+  // Visible fullscreen pan/zoom viewport.
+  const viewport = document.getElementById('viewport');
+  const vctx = viewport.getContext('2d');
 
   const scaleInput = document.getElementById('scale');
   const scaleValDisplay = document.getElementById('scale-val');
@@ -213,34 +284,140 @@
   const stretchValDisplay = document.getElementById('stretch-val');
   const fileInput = document.getElementById('upload');
   const statusText = document.getElementById('status');
+  const downloadBtn = document.getElementById('download');
+  const overlay = document.getElementById('overlay');
+  const overlayHeader = document.getElementById('overlayHeader');
+  const overlayToggle = document.getElementById('overlayToggle');
 
   let isWorkerReady = false;
   let isProcessing = false;
   let pendingProcess = false;
+  let hasFitted = false;
+
+  // Pan/zoom state: screenX = imgX * zoom + panX
+  let zoom = 1;
+  let panX = 0;
+  let panY = 0;
+
+  function resizeViewport() {
+    viewport.width = window.innerWidth;
+    viewport.height = window.innerHeight;
+    render();
+  }
+
+  function render() {
+    vctx.setTransform(1, 0, 0, 1, 0, 0);
+    vctx.clearRect(0, 0, viewport.width, viewport.height);
+    if (resultCanvas.width > 0) {
+      vctx.imageSmoothingEnabled = false;
+      vctx.setTransform(zoom, 0, 0, zoom, panX, panY);
+      vctx.drawImage(resultCanvas, 0, 0);
+    }
+  }
+
+  function fitToScreen() {
+    if (resultCanvas.width === 0) return;
+    const scale = Math.min(
+      viewport.width / resultCanvas.width,
+      viewport.height / resultCanvas.height
+    ) * 0.9;
+    zoom = scale;
+    panX = (viewport.width - resultCanvas.width * zoom) / 2;
+    panY = (viewport.height - resultCanvas.height * zoom) / 2;
+    render();
+  }
+
+  window.addEventListener('resize', resizeViewport);
+  resizeViewport();
+
+  // --- Pan (drag) ---
+  let isDragging = false;
+  let lastX = 0, lastY = 0;
+
+  viewport.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    viewport.setPointerCapture(e.pointerId);
+    viewport.classList.add('dragging');
+  });
+
+  viewport.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    panX += e.clientX - lastX;
+    panY += e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    render();
+  });
+
+  function endDrag() {
+    isDragging = false;
+    viewport.classList.remove('dragging');
+  }
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', endDrag);
+
+  // --- Zoom (wheel, centered on cursor) ---
+  viewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (resultCanvas.width === 0) return;
+
+    const rect = viewport.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const imgX = (mx - panX) / zoom;
+    const imgY = (my - panY) / zoom;
+
+    const factor = Math.exp(-e.deltaY * 0.001);
+    const newZoom = Math.min(Math.max(zoom * factor, 0.05), 64);
+
+    panX = mx - imgX * newZoom;
+    panY = my - imgY * newZoom;
+    zoom = newZoom;
+    render();
+  }, { passive: false });
+
+  viewport.addEventListener('dblclick', fitToScreen);
+
+  // --- Overlay collapse ---
+  overlayHeader.addEventListener('click', () => {
+    overlay.classList.toggle('collapsed');
+    overlayToggle.textContent = overlay.classList.contains('collapsed') ? '+' : '−';
+  });
 
   worker.onmessage = function(e) {
     if (e.data.type === 'ready') {
       isWorkerReady = true;
       statusText.textContent = 'Ready. Awaiting image.';
-    } 
+    }
     else if (e.data.type === 'result') {
-      ctx.putImageData(e.data.imageData, 0, 0);
+      resultCtx.putImageData(e.data.imageData, 0, 0);
       isProcessing = false;
       statusText.textContent = 'Dithering applied.';
-      
+      downloadBtn.disabled = false;
+
+      if (!hasFitted) {
+        hasFitted = true;
+        fitToScreen();
+      } else {
+        render();
+      }
+
       if (pendingProcess) {
         pendingProcess = false;
         triggerProcess();
       }
     }
   };
-  
+
   worker.postMessage({ type: 'init' });
 
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -248,19 +425,21 @@
         let w = img.width;
         let h = img.height;
         const MAX_DIM = 1200;
-        
+
         if (w > MAX_DIM || h > MAX_DIM) {
           const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
           w = Math.floor(w * ratio);
           h = Math.floor(h * ratio);
         }
-        
-        canvas.width = w;
-        canvas.height = h;
-        offscreenCanvas.width = w;
-        offscreenCanvas.height = h;
-        
-        offscreenCtx.drawImage(img, 0, 0, w, h);
+
+        sourceCanvas.width = w;
+        sourceCanvas.height = h;
+        resultCanvas.width = w;
+        resultCanvas.height = h;
+
+        sourceCtx.drawImage(img, 0, 0, w, h);
+        hasFitted = false;
+        downloadBtn.disabled = true;
         triggerProcess();
       };
       img.src = event.target.result;
@@ -278,8 +457,16 @@
     requestRender();
   });
 
+  downloadBtn.addEventListener('click', () => {
+    if (resultCanvas.width === 0) return;
+    const link = document.createElement('a');
+    link.download = 'blue-noise-dither.png';
+    link.href = resultCanvas.toDataURL('image/png');
+    link.click();
+  });
+
   function requestRender() {
-    if (offscreenCanvas.width > 0) {
+    if (sourceCanvas.width > 0) {
       if (isProcessing) {
         pendingProcess = true;
       } else {
@@ -289,16 +476,16 @@
   }
 
   function triggerProcess() {
-    if (!isWorkerReady || offscreenCanvas.width === 0) return;
-    
+    if (!isWorkerReady || sourceCanvas.width === 0) return;
+
     isProcessing = true;
     statusText.textContent = 'Applying anisotropic blue noise...';
-    
-    const imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-    
-    worker.postMessage({ 
-      type: 'process', 
-      imageData: imageData, 
+
+    const imageData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+
+    worker.postMessage({
+      type: 'process',
+      imageData: imageData,
       scale: parseFloat(scaleInput.value),
       stretchX: parseFloat(stretchInput.value)
     });
