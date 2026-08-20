@@ -238,31 +238,89 @@
   window.addEventListener('resize', resizeViewport);
   resizeViewport();
 
-  // --- Pan (drag) ---
+  // --- Pan (drag) + pinch (two-finger zoom) ---
+  function getPos(e) {
+    const rect = viewport.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  const pointers = new Map();
   let isDragging = false;
   let lastX = 0, lastY = 0;
+  let pinchStartDist = 0;
+  let pinchStartZoom = 1;
+  let pinchStartMidX = 0, pinchStartMidY = 0;
+  let pinchStartPanX = 0, pinchStartPanY = 0;
+
+  function beginPinch() {
+    const pts = [...pointers.values()];
+    pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    pinchStartZoom = zoom;
+    pinchStartMidX = (pts[0].x + pts[1].x) / 2;
+    pinchStartMidY = (pts[0].y + pts[1].y) / 2;
+    pinchStartPanX = panX;
+    pinchStartPanY = panY;
+  }
 
   viewport.addEventListener('pointerdown', (e) => {
-    isDragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
     viewport.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, getPos(e));
+
+    if (pointers.size === 1) {
+      isDragging = true;
+      const p = getPos(e);
+      lastX = p.x;
+      lastY = p.y;
+    } else if (pointers.size === 2) {
+      isDragging = false;
+      beginPinch();
+    }
   });
 
   viewport.addEventListener('pointermove', (e) => {
-    if (!isDragging) return;
-    panX += e.clientX - lastX;
-    panY += e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    render();
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, getPos(e));
+
+    if (pointers.size === 2) {
+      const pts = [...pointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+
+      if (pinchStartDist > 0) {
+        const newZoom = Math.min(Math.max(pinchStartZoom * (dist / pinchStartDist), 0.05), 64);
+        const imgX = (pinchStartMidX - pinchStartPanX) / pinchStartZoom;
+        const imgY = (pinchStartMidY - pinchStartPanY) / pinchStartZoom;
+        zoom = newZoom;
+        panX = midX - imgX * zoom;
+        panY = midY - imgY * zoom;
+        render();
+      }
+    } else if (pointers.size === 1 && isDragging) {
+      const p = pointers.get(e.pointerId);
+      panX += p.x - lastX;
+      panY += p.y - lastY;
+      lastX = p.x;
+      lastY = p.y;
+      render();
+    }
   });
 
-  function endDrag() {
-    isDragging = false;
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size === 1) {
+      const p = [...pointers.values()][0];
+      isDragging = true;
+      lastX = p.x;
+      lastY = p.y;
+    } else if (pointers.size === 2) {
+      beginPinch();
+    } else {
+      isDragging = false;
+    }
   }
-  viewport.addEventListener('pointerup', endDrag);
-  viewport.addEventListener('pointercancel', endDrag);
+  viewport.addEventListener('pointerup', endPointer);
+  viewport.addEventListener('pointercancel', endPointer);
 
   // --- Zoom (wheel, centered on cursor) ---
   viewport.addEventListener('wheel', (e) => {
