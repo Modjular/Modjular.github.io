@@ -9,73 +9,65 @@
     html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       background: #000;
       color: #fff;
       font: 14px system-ui, sans-serif;
     }
-    #panel {
-      padding: 0.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    #panel.collapsed > *:not(#panelHeader) {
-      display: none;
-    }
-    #panelHeader {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    #panelHeader h1 {
-      font-size: 1rem;
-      margin: 0;
-    }
-    label {
-      display: block;
-      margin-bottom: 0.25rem;
-    }
-    input[type=range], input[type=file], button {
-      width: 100%;
-    }
     #viewport {
+      position: fixed;
+      inset: 0;
       display: block;
       width: 100vw;
-      height: 70vh;
+      height: 100vh;
       touch-action: none;
     }
-    .status {
-      min-height: 1.1em;
+    #bar {
+      position: fixed;
+      left: 50%;
+      bottom: max(1rem, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #1e1e1eee;
+      padding: 0.5rem 0.75rem;
+      border-radius: 999px;
+      max-width: calc(100vw - 1rem);
+    }
+    #bar button, #bar label {
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #bar button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    #scale {
+      width: 100px;
     }
   </style>
 </head>
 <body>
 
-<div id="panel">
-  <div id="panelHeader">
-    <h1>Blue Noise Dither</h1>
-    <button id="panelToggle">&minus;</button>
-  </div>
-
-  <input type="file" id="upload" accept="image/*">
-
-  <div>
-    <label for="scale">Noise Scale: <span id="scale-val">1.00</span></label>
-    <input type="range" id="scale" min="0" max="2" step="0.05" value="1.0">
-  </div>
-
-  <div>
-    <label for="stretchX">Noise Stretch: <span id="stretch-val">1.0x</span></label>
-    <input type="range" id="stretchX" min="1" max="10" step="0.5" value="1.0">
-  </div>
-
-  <button id="download" disabled>Download PNG</button>
-
-  <div class="status" id="status">Initializing Blue Noise texture...</div>
-  <div>Drag to pan &middot; scroll to zoom &middot; double-click to fit</div>
-</div>
-
 <canvas id="viewport"></canvas>
+
+<div id="bar">
+  <label id="uploadLabel" for="upload">Upload</label>
+  <input type="file" id="upload" accept="image/*" hidden>
+
+  <input type="range" id="scale" min="0" max="2" step="0.05" value="1.0" title="Noise strength">
+
+  <button id="download" disabled>💾</button>
+</div>
 
 <script>
   const workerCode = `
@@ -147,7 +139,7 @@
             self.postMessage({ type: 'ready' });
         }
         else if (e.data.type === 'process') {
-            const { imageData, scale, stretchX } = e.data;
+            const { imageData, scale } = e.data;
             const data = imageData.data;
             const width = imageData.width;
             const height = imageData.height;
@@ -159,8 +151,7 @@
                 for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) << 2;
 
-                    // Scale X coordinates down before modulo tile wrapping
-                    const nx = Math.floor(x / stretchX) & 63;
+                    const nx = x & 63;
 
                     const bn = noiseTex[ny + nx];
                     const offset = (bn - 0.5) * scaleVal;
@@ -181,7 +172,7 @@
 
   // Off-screen source canvas: holds the original uploaded image at native size.
   const sourceCanvas = document.createElement('canvas');
-  const sourceCtx = sourceCanvas.getContext('2d');
+  const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
 
   // Off-screen result canvas: holds the latest dithered output at native size.
   const resultCanvas = document.createElement('canvas');
@@ -192,15 +183,8 @@
   const vctx = viewport.getContext('2d');
 
   const scaleInput = document.getElementById('scale');
-  const scaleValDisplay = document.getElementById('scale-val');
-  const stretchInput = document.getElementById('stretchX');
-  const stretchValDisplay = document.getElementById('stretch-val');
   const fileInput = document.getElementById('upload');
-  const statusText = document.getElementById('status');
   const downloadBtn = document.getElementById('download');
-  const panel = document.getElementById('panel');
-  const panelHeader = document.getElementById('panelHeader');
-  const panelToggle = document.getElementById('panelToggle');
 
   let isWorkerReady = false;
   let isProcessing = false;
@@ -303,22 +287,13 @@
 
   viewport.addEventListener('dblclick', fitToScreen);
 
-  // --- Panel collapse ---
-  panelHeader.addEventListener('click', () => {
-    panel.classList.toggle('collapsed');
-    panelToggle.textContent = panel.classList.contains('collapsed') ? '+' : '−';
-    resizeViewport();
-  });
-
   worker.onmessage = function(e) {
     if (e.data.type === 'ready') {
       isWorkerReady = true;
-      statusText.textContent = 'Ready. Awaiting image.';
     }
     else if (e.data.type === 'result') {
       resultCtx.putImageData(e.data.imageData, 0, 0);
       isProcessing = false;
-      statusText.textContent = 'Dithering applied.';
       downloadBtn.disabled = false;
 
       if (!hasFitted) {
@@ -370,15 +345,7 @@
     reader.readAsDataURL(file);
   });
 
-  scaleInput.addEventListener('input', (e) => {
-    scaleValDisplay.textContent = parseFloat(e.target.value).toFixed(2);
-    requestRender();
-  });
-
-  stretchInput.addEventListener('input', (e) => {
-    stretchValDisplay.textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
-    requestRender();
-  });
+  scaleInput.addEventListener('input', requestRender);
 
   downloadBtn.addEventListener('click', () => {
     if (resultCanvas.width === 0) return;
@@ -402,15 +369,13 @@
     if (!isWorkerReady || sourceCanvas.width === 0) return;
 
     isProcessing = true;
-    statusText.textContent = 'Applying anisotropic blue noise...';
 
     const imageData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
 
     worker.postMessage({
       type: 'process',
       imageData: imageData,
-      scale: parseFloat(scaleInput.value),
-      stretchX: parseFloat(stretchInput.value)
+      scale: parseFloat(scaleInput.value)
     });
   }
 </script>
