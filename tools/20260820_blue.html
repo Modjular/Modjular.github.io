@@ -5,164 +5,77 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blue Noise Dithering with X-Stretch</title>
   <style>
-    :root {
-      --bg: #121212;
-      --fg: #e0e0e0;
-      --accent: #3b82f6;
-      --surface: #1e1e1ecc;
-    }
+    * { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
       background: #000;
-      font-family: system-ui, -apple-system, sans-serif;
-      color: var(--fg);
+      color: #fff;
+      font: 14px system-ui, sans-serif;
     }
-    #viewport {
-      position: fixed;
-      inset: 0;
-      display: block;
-      width: 100vw;
-      height: 100vh;
-      touch-action: none;
-      cursor: grab;
-    }
-    #viewport.dragging {
-      cursor: grabbing;
-    }
-    .overlay {
-      position: fixed;
-      top: 1rem;
-      left: 1rem;
-      width: 280px;
-      max-width: calc(100vw - 2rem);
-      background: var(--surface);
-      backdrop-filter: blur(8px);
-      border-radius: 10px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-      z-index: 10;
-      overflow: hidden;
-    }
-    .overlay-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.75rem 1rem;
-      cursor: pointer;
-      user-select: none;
-    }
-    .overlay-header h1 {
-      font-size: 1rem;
-      margin: 0;
-      letter-spacing: -0.02em;
-    }
-    .overlay-toggle {
-      background: none;
-      border: none;
-      color: var(--fg);
-      font-size: 1rem;
-      cursor: pointer;
-      line-height: 1;
-      padding: 0.25rem;
-    }
-    .overlay-body {
+    #panel {
+      padding: 0.5rem;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
-      padding: 0 1rem 1rem;
+      gap: 0.5rem;
     }
-    .overlay.collapsed .overlay-body {
+    #panel.collapsed > *:not(#panelHeader) {
       display: none;
     }
-    .control-group {
-      background: #ffffff0d;
-      padding: 0.75rem;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-    label {
-      font-weight: 600;
-      font-size: 0.9rem;
+    #panelHeader {
       display: flex;
       justify-content: space-between;
+      align-items: center;
     }
-    input[type=range] {
+    #panelHeader h1 {
+      font-size: 1rem;
+      margin: 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+    input[type=range], input[type=file], button {
       width: 100%;
-      accent-color: var(--accent);
     }
-    input[type=file] {
-      width: 100%;
-      font-size: 0.85rem;
-      color: var(--fg);
-    }
-    button.action {
-      width: 100%;
-      padding: 0.6rem;
-      border: none;
-      border-radius: 6px;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-    }
-    button.action:disabled {
-      background: #3b4b6b;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-    .hint {
-      font-size: 0.75rem;
-      color: #9ca3af;
+    #viewport {
+      display: block;
+      width: 100vw;
+      height: 70vh;
+      touch-action: none;
     }
     .status {
-      font-size: 0.8rem;
-      color: #9ca3af;
-      min-height: 1.1rem;
+      min-height: 1.1em;
     }
   </style>
 </head>
 <body>
 
-<canvas id="viewport"></canvas>
-
-<div class="overlay" id="overlay">
-  <div class="overlay-header" id="overlayHeader">
+<div id="panel">
+  <div id="panelHeader">
     <h1>Blue Noise Dither</h1>
-    <button class="overlay-toggle" id="overlayToggle" aria-label="Toggle panel">&minus;</button>
+    <button id="panelToggle">&minus;</button>
   </div>
-  <div class="overlay-body">
-    <div class="control-group">
-      <input type="file" id="upload" accept="image/*">
-    </div>
 
-    <div class="control-group">
-      <label for="scale">
-        <span>Noise Scale</span>
-        <span id="scale-val">1.00</span>
-      </label>
-      <input type="range" id="scale" min="0" max="2" step="0.05" value="1.0">
-    </div>
+  <input type="file" id="upload" accept="image/*">
 
-    <div class="control-group">
-      <label for="stretchX">
-        <span>Noise Stretch (Run Length)</span>
-        <span id="stretch-val">1.0x</span>
-      </label>
-      <input type="range" id="stretchX" min="1" max="10" step="0.5" value="1.0">
-    </div>
-
-    <button class="action" id="download" disabled>Download PNG</button>
-
-    <div class="status" id="status">Initializing Blue Noise texture...</div>
-    <div class="hint">Drag to pan &middot; scroll to zoom &middot; double-click to fit</div>
+  <div>
+    <label for="scale">Noise Scale: <span id="scale-val">1.00</span></label>
+    <input type="range" id="scale" min="0" max="2" step="0.05" value="1.0">
   </div>
+
+  <div>
+    <label for="stretchX">Noise Stretch: <span id="stretch-val">1.0x</span></label>
+    <input type="range" id="stretchX" min="1" max="10" step="0.5" value="1.0">
+  </div>
+
+  <button id="download" disabled>Download PNG</button>
+
+  <div class="status" id="status">Initializing Blue Noise texture...</div>
+  <div>Drag to pan &middot; scroll to zoom &middot; double-click to fit</div>
 </div>
+
+<canvas id="viewport"></canvas>
 
 <script>
   const workerCode = `
@@ -285,23 +198,32 @@
   const fileInput = document.getElementById('upload');
   const statusText = document.getElementById('status');
   const downloadBtn = document.getElementById('download');
-  const overlay = document.getElementById('overlay');
-  const overlayHeader = document.getElementById('overlayHeader');
-  const overlayToggle = document.getElementById('overlayToggle');
+  const panel = document.getElementById('panel');
+  const panelHeader = document.getElementById('panelHeader');
+  const panelToggle = document.getElementById('panelToggle');
 
   let isWorkerReady = false;
   let isProcessing = false;
   let pendingProcess = false;
   let hasFitted = false;
 
-  // Pan/zoom state: screenX = imgX * zoom + panX
+  // Pan/zoom state (all in CSS pixels): screenX = imgX * zoom + panX
   let zoom = 1;
   let panX = 0;
   let panY = 0;
 
+  // CSS-pixel dimensions of the viewport, kept separate from the
+  // (devicePixelRatio-scaled) canvas backing store.
+  let cssW = 0;
+  let cssH = 0;
+  let dpr = window.devicePixelRatio || 1;
+
   function resizeViewport() {
-    viewport.width = window.innerWidth;
-    viewport.height = window.innerHeight;
+    dpr = window.devicePixelRatio || 1;
+    cssW = viewport.clientWidth;
+    cssH = viewport.clientHeight;
+    viewport.width = Math.round(cssW * dpr);
+    viewport.height = Math.round(cssH * dpr);
     render();
   }
 
@@ -309,8 +231,10 @@
     vctx.setTransform(1, 0, 0, 1, 0, 0);
     vctx.clearRect(0, 0, viewport.width, viewport.height);
     if (resultCanvas.width > 0) {
-      vctx.imageSmoothingEnabled = false;
-      vctx.setTransform(zoom, 0, 0, zoom, panX, panY);
+      // Only go pixel-perfect once source pixels are actually visible
+      // on screen, accounting for device pixel ratio.
+      vctx.imageSmoothingEnabled = zoom * dpr < 3;
+      vctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
       vctx.drawImage(resultCanvas, 0, 0);
     }
   }
@@ -318,12 +242,12 @@
   function fitToScreen() {
     if (resultCanvas.width === 0) return;
     const scale = Math.min(
-      viewport.width / resultCanvas.width,
-      viewport.height / resultCanvas.height
+      cssW / resultCanvas.width,
+      cssH / resultCanvas.height
     ) * 0.9;
     zoom = scale;
-    panX = (viewport.width - resultCanvas.width * zoom) / 2;
-    panY = (viewport.height - resultCanvas.height * zoom) / 2;
+    panX = (cssW - resultCanvas.width * zoom) / 2;
+    panY = (cssH - resultCanvas.height * zoom) / 2;
     render();
   }
 
@@ -339,7 +263,6 @@
     lastX = e.clientX;
     lastY = e.clientY;
     viewport.setPointerCapture(e.pointerId);
-    viewport.classList.add('dragging');
   });
 
   viewport.addEventListener('pointermove', (e) => {
@@ -353,7 +276,6 @@
 
   function endDrag() {
     isDragging = false;
-    viewport.classList.remove('dragging');
   }
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
@@ -381,10 +303,11 @@
 
   viewport.addEventListener('dblclick', fitToScreen);
 
-  // --- Overlay collapse ---
-  overlayHeader.addEventListener('click', () => {
-    overlay.classList.toggle('collapsed');
-    overlayToggle.textContent = overlay.classList.contains('collapsed') ? '+' : '−';
+  // --- Panel collapse ---
+  panelHeader.addEventListener('click', () => {
+    panel.classList.toggle('collapsed');
+    panelToggle.textContent = panel.classList.contains('collapsed') ? '+' : '−';
+    resizeViewport();
   });
 
   worker.onmessage = function(e) {
