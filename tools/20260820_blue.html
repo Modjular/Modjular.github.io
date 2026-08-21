@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blue Noise Dithering with X-Stretch</title>
+  <title>Blue/Green Noise Dithering</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -24,20 +24,8 @@
       height: 100vh;
       touch-action: none;
     }
-    #bar {
-      position: fixed;
-      left: 50%;
-      bottom: max(1rem, env(safe-area-inset-bottom));
-      transform: translateX(-50%);
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      background: #1e1e1eee;
-      padding: 0.5rem 0.75rem;
-      border-radius: 999px;
-      max-width: calc(100vw - 1rem);
-    }
-    #bar button, #bar label {
+
+    .btn {
       background: #333;
       color: #fff;
       border: none;
@@ -47,12 +35,63 @@
       cursor: pointer;
       white-space: nowrap;
     }
-    #bar button:disabled {
+    .btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
+
+    /* --- Upper-left file overlay (upload/download) --- */
+    #fileToggle {
+      position: fixed;
+      top: max(1rem, env(safe-area-inset-top));
+      left: max(1rem, env(safe-area-inset-left));
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      background: #1e1e1eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      cursor: pointer;
+      z-index: 10;
+      user-select: none;
+    }
+    #filePanel {
+      position: fixed;
+      top: calc(max(1rem, env(safe-area-inset-top)) + 52px);
+      left: max(1rem, env(safe-area-inset-left));
+      background: #1e1e1eee;
+      border-radius: 16px;
+      padding: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+    #filePanel.hidden { display: none; }
+    #filePanel .btn { text-align: center; }
+
+    /* --- Bottom bar: noise type + wide slider --- */
+    #bar {
+      position: fixed;
+      left: max(1rem, env(safe-area-inset-left));
+      right: max(1rem, env(safe-area-inset-right));
+      bottom: max(1rem, env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #1e1e1eee;
+      padding: 0.6rem 0.9rem;
+      border-radius: 999px;
+    }
+    #noiseType {
+      flex-shrink: 0;
+    }
     #scale {
-      width: 100px;
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto;
     }
   </style>
 </head>
@@ -60,48 +99,59 @@
 
 <canvas id="viewport"></canvas>
 
-<div id="bar">
-  <label id="uploadLabel" for="upload">Upload</label>
+<div id="fileToggle" title="Files">📁</div>
+<div id="filePanel" class="hidden">
+  <label id="uploadLabel" class="btn" for="upload">Upload</label>
   <input type="file" id="upload" accept="image/*" hidden>
+  <button id="download" class="btn" disabled>💾 Save</button>
+</div>
 
+<div id="bar">
+  <select id="noiseType" class="btn">
+    <option value="blue">Blue</option>
+    <option value="green">Green</option>
+  </select>
   <input type="range" id="scale" min="0" max="2" step="0.05" value="1.0" title="Noise strength">
-
-  <button id="download" disabled>💾</button>
 </div>
 
 <script>
   const workerCode = `
     const SIZE = 64;
-    let noiseTex = null;
+    let blueTex = null;
+    let greenTex = null;
 
-    function generateBlueNoise() {
-        const N = SIZE * SIZE;
+    // Classic void-and-cluster generation, parameterized by grid size.
+    // When normalize=true, output is scaled to [0,1). When false, output is
+    // the raw integer fill-order rank (0..N-1) — needed by generateGreenNoise
+    // so it can combine ranks without double-dividing by N.
+    function generateVoidCluster(size, normalize) {
+        const N = size * size;
         const noise = new Float32Array(N);
         const filled = new Uint8Array(N);
 
         const sigma = 1.9;
         const lut = new Float32Array(N);
 
-        for(let y = 0; y < SIZE; y++) {
-            for(let x = 0; x < SIZE; x++) {
-                let dx = x > SIZE/2 ? SIZE - x : x;
-                let dy = y > SIZE/2 ? SIZE - y : y;
-                lut[y * SIZE + x] = Math.exp(-(dx*dx + dy*dy) / (sigma * sigma));
+        for(let y = 0; y < size; y++) {
+            for(let x = 0; x < size; x++) {
+                let dx = x > size/2 ? size - x : x;
+                let dy = y > size/2 ? size - y : y;
+                lut[y * size + x] = Math.exp(-(dx*dx + dy*dy) / (sigma * sigma));
             }
         }
 
-        let px = Math.floor(Math.random() * SIZE);
-        let py = Math.floor(Math.random() * SIZE);
-        filled[py * SIZE + px] = 1;
-        noise[py * SIZE + px] = 0;
+        let px = Math.floor(Math.random() * size);
+        let py = Math.floor(Math.random() * size);
+        filled[py * size + px] = 1;
+        noise[py * size + px] = 0;
 
         const energy = new Float32Array(N);
         for(let i = 0; i < N; i++) {
-            let ey = Math.floor(i / SIZE), ex = i % SIZE;
+            let ey = Math.floor(i / size), ex = i % size;
             let dx = Math.abs(ex - px), dy = Math.abs(ey - py);
-            if(dx > SIZE/2) dx = SIZE - dx;
-            if(dy > SIZE/2) dy = SIZE - dy;
-            energy[i] += lut[dy * SIZE + dx];
+            if(dx > size/2) dx = size - dx;
+            if(dy > size/2) dy = size - dy;
+            energy[i] += lut[dy * size + dx];
         }
 
         for (let i = 1; i < N; i++) {
@@ -116,33 +166,75 @@
             }
 
             filled[minIdx] = 1;
-            noise[minIdx] = i / N;
+            noise[minIdx] = i; // raw fill-order rank, 0..N-1
 
-            let cx = minIdx % SIZE;
-            let cy = Math.floor(minIdx / SIZE);
+            let cx = minIdx % size;
+            let cy = Math.floor(minIdx / size);
             for(let j = 0; j < N; j++) {
                 if(filled[j] === 0) {
-                    let ex = j % SIZE, ey = Math.floor(j / SIZE);
+                    let ex = j % size, ey = Math.floor(j / size);
                     let dx = Math.abs(ex - cx), dy = Math.abs(ey - cy);
-                    if(dx > SIZE/2) dx = SIZE - dx;
-                    if(dy > SIZE/2) dy = SIZE - dy;
-                    energy[j] += lut[dy * SIZE + dx];
+                    if(dx > size/2) dx = size - dx;
+                    if(dy > size/2) dy = size - dy;
+                    energy[j] += lut[dy * size + dx];
                 }
             }
+        }
+
+        if (normalize) {
+            for (let k = 0; k < N; k++) noise[k] /= N;
         }
         return noise;
     }
 
+    function generateBlueNoise() {
+        return generateVoidCluster(SIZE, true);
+    }
+
+    // Green noise: 2x2 clusters distributed via blue-noise ordering, each
+    // cluster filled in classic Bayer sub-order. Produces mid-frequency
+    // "clumped" dithering instead of blue noise's isolated single pixels.
+    function generateGreenNoise() {
+        const half = SIZE / 2;
+        const baseRank = generateVoidCluster(half, false); // raw ints 0..N-1
+        const N = half * half;
+        const tex = new Float32Array(SIZE * SIZE);
+
+        const positions = [
+            { sx: 0, sy: 0 }, // TL
+            { sx: 1, sy: 0 }, // TR
+            { sx: 0, sy: 1 }, // BL
+            { sx: 1, sy: 1 }  // BR
+        ];
+        const subRank = [0, 2, 3, 1]; // classic 2x2 Bayer fill order
+
+        for (let cy = 0; cy < half; cy++) {
+            for (let cx = 0; cx < half; cx++) {
+                const rawRank = baseRank[cy * half + cx];
+                for (let s = 0; s < 4; s++) {
+                    const rank = subRank[s];
+                    const value = (rawRank * 4 + rank) / (N * 4);
+                    const ox = cx * 2 + positions[s].sx;
+                    const oy = cy * 2 + positions[s].sy;
+                    tex[oy * SIZE + ox] = value;
+                }
+            }
+        }
+        return tex;
+    }
+
     self.onmessage = function(e) {
         if (e.data.type === 'init') {
-            noiseTex = generateBlueNoise();
+            blueTex = generateBlueNoise();
+            greenTex = generateGreenNoise();
             self.postMessage({ type: 'ready' });
         }
         else if (e.data.type === 'process') {
-            const { imageData, scale } = e.data;
+            const { imageData, scale, noiseType } = e.data;
             const data = imageData.data;
             const width = imageData.width;
             const height = imageData.height;
+            const tex = noiseType === 'green' ? greenTex : blueTex;
 
             const scaleVal = scale * 255;
 
@@ -153,7 +245,7 @@
 
                     const nx = x & 63;
 
-                    const bn = noiseTex[ny + nx];
+                    const bn = tex[ny + nx];
                     const offset = (bn - 0.5) * scaleVal;
 
                     data[idx]   = (data[idx]   + offset) > 127 ? 255 : 0;
@@ -183,8 +275,11 @@
   const vctx = viewport.getContext('2d');
 
   const scaleInput = document.getElementById('scale');
+  const noiseTypeSelect = document.getElementById('noiseType');
   const fileInput = document.getElementById('upload');
   const downloadBtn = document.getElementById('download');
+  const fileToggle = document.getElementById('fileToggle');
+  const filePanel = document.getElementById('filePanel');
 
   let isWorkerReady = false;
   let isProcessing = false;
@@ -237,6 +332,16 @@
 
   window.addEventListener('resize', resizeViewport);
   resizeViewport();
+
+  // --- File overlay toggle ---
+  fileToggle.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    filePanel.classList.toggle('hidden');
+  });
+  filePanel.addEventListener('pointerdown', (e) => e.stopPropagation());
+  document.addEventListener('pointerdown', () => {
+    filePanel.classList.add('hidden');
+  });
 
   // --- Pan (drag) + pinch (two-finger zoom) ---
   function getPos(e) {
@@ -401,14 +506,16 @@
       img.src = event.target.result;
     };
     reader.readAsDataURL(file);
+    filePanel.classList.add('hidden');
   });
 
   scaleInput.addEventListener('input', requestRender);
+  noiseTypeSelect.addEventListener('change', requestRender);
 
   downloadBtn.addEventListener('click', () => {
     if (resultCanvas.width === 0) return;
     const link = document.createElement('a');
-    link.download = 'blue-noise-dither.png';
+    link.download = 'noise-dither.png';
     link.href = resultCanvas.toDataURL('image/png');
     link.click();
   });
@@ -433,7 +540,8 @@
     worker.postMessage({
       type: 'process',
       imageData: imageData,
-      scale: parseFloat(scaleInput.value)
+      scale: parseFloat(scaleInput.value),
+      noiseType: noiseTypeSelect.value
     });
   }
 </script>
