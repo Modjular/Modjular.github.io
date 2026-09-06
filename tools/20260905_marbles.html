@@ -347,6 +347,10 @@
         <h3>Simulation</h3>
         <div class="stat-row"><span>Marbles</span><span id="stat-marbles">0</span></div>
 
+        <h3>Recording</h3>
+        <p>Captures Box3D's own native world-state recording &mdash; an op-log with embedded state hashes meant for deterministic replay/debugging, not just a position trace &mdash; for 15 seconds, then downloads the raw bytes. Starts the simulation automatically if it isn't already running.</p>
+        <button class="btn-plain" id="record-btn" style="width:100%">Record 15s</button>
+
         <h3>Bank (twist handles)</h3>
         <p>With Edit Bankings on, tap a red node to reveal a small green dial around it. Drag the dial's handle to <b>roll</b> the rails around their own direction of travel at that node &mdash; banking them into a curve, like a real coaster, so a fast marble gets pushed inward instead of skipping off the outer rail. (Not yaw &mdash; that's the 2D curve's own turning. Not pitch &mdash; that would tip the rails nose-up/down. Roll is rotation around the rail's own axis, which is what changes here.)</p>
 
@@ -392,7 +396,7 @@
   <script type="importmap">
     { "imports": {
       "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
-      "box3d-wasm": "https://unpkg.com/box3d-wasm@0.2.0/dist/box3d.mjs"
+      "box3d-wasm": "./20260905_marbles_box3d-wasm/entry.mjs"
     } }
   </script>
 <script type="module">
@@ -1647,6 +1651,65 @@ import Box3D from "box3d-wasm";
     else { simRunning = !simRunning; updateSimUI(); }
   });
   document.getElementById("sim-reset-btn").addEventListener("click", stopSim);
+
+  // =========================================================================
+  // Recording: Box3D's own native world-state recording (see BUILD.txt in
+  // the vendored box3d-wasm build this page loads) -- an op-log of world
+  // mutations with embedded state hashes, meant for deterministic
+  // replay/debugging, not simply "position per marble per frame". Captures
+  // for a fixed 15s window, then hands the raw bytes to the browser as a
+  // download. Auto-starts the sim if it isn't already running, since an idle
+  // world has nothing worth recording.
+  // =========================================================================
+  const RECORDING_SECONDS = 15;
+  const recordBtn = document.getElementById("record-btn");
+  let activeRecording = null;
+  let recordCountdown = 0;
+  let recordIntervalId = null;
+
+  function finishRecording() {
+    clearInterval(recordIntervalId);
+    recordIntervalId = null;
+    physicsWorld.stopRecording();
+
+    const view = activeRecording.getData(); // zero-copy view -- copy out now
+    const bytes = new Uint8Array(view);
+    activeRecording.destroy();
+    activeRecording.delete();
+    activeRecording = null;
+
+    const blob = new Blob([bytes], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `marble-track-${Date.now()}.b3rec`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    recordBtn.disabled = false;
+    recordBtn.textContent = "Record 15s";
+  }
+
+  recordBtn.addEventListener("click", () => {
+    if (activeRecording) return;
+    if (!simStarted) startSim();
+
+    activeRecording = new b3.Recording(0);
+    physicsWorld.startRecording(activeRecording);
+    recordCountdown = RECORDING_SECONDS;
+    recordBtn.disabled = true;
+    recordBtn.textContent = `Recording… ${recordCountdown}s`;
+    recordIntervalId = setInterval(() => {
+      recordCountdown -= 1;
+      if (recordCountdown <= 0) {
+        finishRecording();
+      } else {
+        recordBtn.textContent = `Recording… ${recordCountdown}s`;
+      }
+    }, 1000);
+  });
 
   // =========================================================================
   // Orchestrator: recomputes the 3D path, then rebuilds every layer that
