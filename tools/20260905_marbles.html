@@ -74,6 +74,7 @@
   canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
   #canvas-wrap.mode-edit canvas { cursor: default; }
   #canvas-wrap.mode-delete canvas { cursor: not-allowed; }
+  #canvas-wrap.mode-slope canvas { cursor: ns-resize; }
   #canvas3d-wrap canvas { cursor: grab; }
   #canvas3d-wrap.dragging canvas { cursor: grabbing; }
   #canvas3d-empty {
@@ -221,7 +222,8 @@
   #settings-body h3:first-child { margin-top: 0.2rem; }
   #settings-body p, #settings-body li { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
   #settings-body ul { margin: 0; padding-left: 1.1rem; }
-  #settings-body .btn-group { margin-top: 0.3rem; }
+  #settings-body .btn-group { margin-top: 0.3rem; width: 100%; }
+  #settings-body .btn-group button { flex: 1; }
   .stat-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-main); padding: 6px 0; }
   .stat-row span:last-child { color: var(--text-muted); }
   label.check {
@@ -234,11 +236,10 @@
     cursor: pointer;
     user-select: none;
   }
-  label.check input[type="checkbox"] { width: 20px; height: 20px; }
+  label.check input[type="checkbox"] { width: 20px; height: 20px; flex: none; }
   .btn-plain { background: var(--bg-control); width: 100%; }
   .btn-danger { background: var(--accent-subtle); color: var(--accent-danger); width: 100%; }
-  .settings-row { display: flex; gap: 8px; margin-top: 0.5rem; }
-  .settings-row > button { flex: 1; }
+  #settings-body > .btn-plain:first-child { margin-bottom: 0.9rem; }
 
   input[type="range"] {
     -webkit-appearance: none;
@@ -287,6 +288,7 @@
       <button data-mode="place">Place</button>
       <button data-mode="edit">Edit</button>
       <button data-mode="delete">Delete</button>
+      <button data-mode="slope">Slope</button>
     </div>
     <div id="bottom-bar-3d" style="display:none">
       <div id="steepness-inline">
@@ -297,7 +299,7 @@
       <div id="bottom-bar-3d-actions" class="btn-group">
         <button id="sim-playpause-btn">Play</button>
         <button id="sim-reset-btn">Reset</button>
-        <button id="edit-bankings-btn">Edit Bankings</button>
+        <button id="edit-bankings-btn">Edit</button>
       </div>
     </div>
   </div>
@@ -309,15 +311,18 @@
       <button id="settings-close">&#10005;</button>
     </div>
     <div id="settings-body">
+      <button class="btn-plain" id="theme-toggle">&#9788; Theme</button>
+
       <div id="settings-2d">
         <h3>Phase 1 &mdash; 2D editor</h3>
         <p>Sketch a top-down path. Nodes connect into one continuous C&sup1;-smooth spline.</p>
 
         <h3>Controls</h3>
         <ul>
-          <li><b>Place</b> &mdash; tap empty space to append a node to the end of the track.</li>
-          <li><b>Edit</b> &mdash; drag a node to move it, or drag a handle tip to reshape the curve. Handles mirror automatically to keep the curve smooth.</li>
-          <li><b>Delete</b> &mdash; tap a node to remove it. The track reconnects.</li>
+          <li><b>Place</b> &mdash; tap empty space to append a node.</li>
+          <li><b>Edit</b> &mdash; drag a node to move it, or a handle tip to reshape the curve.</li>
+          <li><b>Delete</b> &mdash; tap a node to remove it.</li>
+          <li><b>Slope</b> &mdash; a side profile of the descent, shaped as its own bezier curve.</li>
         </ul>
 
         <h3>Track</h3>
@@ -334,12 +339,11 @@
 
       <div id="settings-3d" style="display:none">
         <h3>3D mode</h3>
-        <p>2D track editing is locked here, but bank, steepness, resolution, and sampling are all 3D-only adjustments you can make any time -- press Play when you're ready to actually drop a marble.</p>
-        <p>The rail pair stays level (equal height) by default through turns, but the track doesn't cap marble speed for you &mdash; a fast marble can still fly off a curve. Turn on <b>Edit Bankings</b> (bottom bar), then tap a red node to reveal its twist handle.</p>
+        <p>2D editing is locked here; bank, steepness, resolution, and sampling stay adjustable. Press Play to drop a marble.</p>
 
         <h3>Camera</h3>
         <p>One finger to orbit, two fingers to pan, pinch (or scroll) to zoom.</p>
-        <p>Desktop: WASD flies the camera through the scene (forward/back/strafe) while this view is open.</p>
+        <p>Desktop: WASD flies the camera (forward/back/strafe) while this view is open.</p>
         <div class="btn-group" id="projection-group">
           <button data-projection="perspective">Perspective</button>
           <button data-projection="isometric">Isometric</button>
@@ -349,18 +353,18 @@
         <div class="stat-row"><span>Marbles</span><span id="stat-marbles">0</span></div>
 
         <h3>Recording</h3>
-        <p>Captures Box3D's own native world-state recording &mdash; an op-log with embedded state hashes meant for deterministic replay/debugging, not just a position trace &mdash; for 15 seconds, then downloads the raw bytes. Starts the simulation automatically if it isn't already running.</p>
+        <p>Captures 15 seconds of Box3D's native world-state recording and downloads it. Starts the simulation if it isn't already running.</p>
         <button class="btn-plain" id="record-btn" style="width:100%">Record 15s</button>
 
         <h3>Bank (twist handles)</h3>
-        <p>With Edit Bankings on, tap a red node to reveal a small green dial around it. Drag the dial's handle to <b>roll</b> the rails around their own direction of travel at that node &mdash; banking them into a curve, like a real coaster, so a fast marble gets pushed inward instead of skipping off the outer rail. (Not yaw &mdash; that's the 2D curve's own turning. Not pitch &mdash; that would tip the rails nose-up/down. Roll is rotation around the rail's own axis, which is what changes here.)</p>
+        <p>With Edit on, tap a red node to reveal its dial, then drag to roll the rails around their own direction of travel &mdash; banking a curve so a fast marble gets pushed inward instead of skipping off.</p>
 
         <h3>Sampling</h3>
         <div class="btn-group" id="sampling-group">
           <button data-sampling="uniform">Uniform t</button>
           <button data-sampling="arclength">Arc-length</button>
         </div>
-        <p>Uniform-<i>t</i> (De Casteljau) naturally packs more samples into tight curves, giving the rail mesh &amp; colliders finer resolution exactly where curvature is highest &mdash; the default here. Arc-length instead spaces every sample evenly by real distance, even through sharp turns.</p>
+        <p>Uniform-<i>t</i> (the default) packs more samples into tight curves; arc-length spaces samples evenly by real distance instead.</p>
 
         <div class="stat-row" style="margin-top:0.6rem"><span>Resolution</span><span id="resolution-value">32 / segment</span></div>
         <input type="range" id="resolution-slider" min="4" max="64" step="2" value="32" />
@@ -375,22 +379,19 @@
         <div class="stat-row"><span>Collider triangles</span><span id="stat-collider-tris">0</span></div>
 
         <h3>Collider note</h3>
-        <p>Each rail collides as a single static triangle mesh, built from the exact same vertices as the visual tube &mdash; box3d-wasm 0.2.0 doesn't expose a triangle-mesh shape to JS by default, so this tool vendors a custom build with that binding added (the underlying box3d engine already supports it natively; see BUILD.txt next to the vendored wasm).</p>
+        <p>Each rail collides as a single static triangle mesh, matching the visual tube exactly. See BUILD.txt next to the vendored box3d-wasm build for how.</p>
 
         <h3>QC checklist</h3>
         <ul>
           <li>Marble spawns at node 0 and rolls the full length of the track.</li>
           <li>No jittering, snagging, or falling through the rails.</li>
-          <li>Tapping a node (with Edit Bankings on) reveals its dial; dragging it visibly banks the mesh &amp; colliders together.</li>
+          <li>Tapping a node (with Edit on) reveals its dial; dragging it visibly banks the mesh &amp; colliders together.</li>
           <li>Banking a tight curve keeps a fast marble on track through it.</li>
         </ul>
       </div>
 
       <h3>General</h3>
-      <div class="settings-row">
-        <button class="btn-plain" id="theme-toggle">&#9788; Theme</button>
-        <button class="btn-danger" id="clear-btn">Clear track</button>
-      </div>
+      <button class="btn-danger" id="clear-btn">Clear track</button>
     </div>
   </div>
 
@@ -448,8 +449,16 @@ import Box3D from "box3d-wasm";
   // node.auto tracks whether the offset is still being driven by the
   // automatic tangent heuristic (see recomputeAuto) or was overridden by the
   // user dragging a handle by hand.
+  //
+  // Elevation (see the Slope view, below) piggybacks on the same node
+  // objects with its own independent set of fields -- elev (world-space Y),
+  // elevTangent (a single mirrored offset, same trick as hx/hy but 1D since
+  // the profile's x-axis is locked to node index), and elevAuto. Unlike
+  // (hx, hy), whose auto default only depends on other nodes, elev's auto
+  // default also tracks the steepness slider (ELEVATION_PER_NODE) -- see
+  // recomputeAllElevAuto.
   // =========================================================================
-  const nodes = []; // { x, y, hx, hy, auto }
+  const nodes = []; // { x, y, hx, hy, auto, elev, elevTangent, elevAuto }
   const HANDLE_LEN_DEFAULT = 55;
   const HANDLE_FRACTION = 0.35; // fraction of distance-to-nearest-neighbor used for auto handle length
 
@@ -492,15 +501,55 @@ import Box3D from "box3d-wasm";
     }
   }
 
+  // The fraction that exactly reproduces a straight line: a cubic Bezier
+  // whose two inner control points sit at 1/3 and 2/3 of the way along the
+  // segment traces that segment at constant speed (the textbook
+  // "linear-as-Bezier" identity). So as long as every node's elev is still
+  // the default straight ramp (elevAuto, -i*ELEVATION_PER_NODE), tangents
+  // computed with this fraction reproduce today's linear descent exactly --
+  // the Slope view starts out looking identical to the old fixed slope, and
+  // only diverges once the user actually drags something in it.
+  const ELEV_HANDLE_FRACTION = 1 / 3;
+
+  // Re-derives elev (for nodes still on the steepness-slider default) and
+  // elevTangent (for nodes still on the auto heuristic) for every node
+  // flagged `elevAuto`. Two passes: elev must be settled for the whole chain
+  // before tangents (which read neighboring elev) are computed from it.
+  function recomputeAllElevAuto() {
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (node.elevAuto) node.elev = -i * ELEVATION_PER_NODE;
+    }
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (!node.elevAuto) continue;
+      const prevElev = i > 0 ? nodes[i - 1].elev : null;
+      const nextElev = i < nodes.length - 1 ? nodes[i + 1].elev : null;
+      if (prevElev !== null && nextElev !== null) {
+        node.elevTangent = (nextElev - prevElev) / 2 * ELEV_HANDLE_FRACTION;
+      } else if (nextElev !== null) {
+        node.elevTangent = (nextElev - node.elev) * ELEV_HANDLE_FRACTION;
+      } else if (prevElev !== null) {
+        node.elevTangent = (node.elev - prevElev) * ELEV_HANDLE_FRACTION;
+      } else {
+        node.elevTangent = 0;
+      }
+    }
+  }
+
   function addNode(pos) {
     const prev = nodes[nodes.length - 1] || null;
     // `bank` is a 3D-only property (radians of roll around the rail's own
     // tangent at this node -- see the twist-handle interaction in the 3D
     // view) but lives on the node object itself, not a parallel array, so it
     // automatically stays attached to the right node through inserts/deletes.
-    const node = { x: pos.x, y: pos.y, hx: HANDLE_LEN_DEFAULT, hy: 0, auto: true, bank: 0 };
+    const node = {
+      x: pos.x, y: pos.y, hx: HANDLE_LEN_DEFAULT, hy: 0, auto: true, bank: 0,
+      elev: 0, elevTangent: 0, elevAuto: true,
+    };
     nodes.push(node);
     recomputeAllAuto();
+    recomputeAllElevAuto();
   }
 
   function removeNode(node) {
@@ -508,6 +557,7 @@ import Box3D from "box3d-wasm";
     if (idx === -1) return;
     nodes.splice(idx, 1);
     recomputeAllAuto();
+    recomputeAllElevAuto();
   }
 
   // =========================================================================
@@ -635,6 +685,71 @@ import Box3D from "box3d-wasm";
     return null;
   }
 
+  // =========================================================================
+  // Slope view: a side profile of the track's elevation, edited as its own
+  // chain of node+tangent Bezier segments (see ELEV_HANDLE_FRACTION and
+  // recomputeAllElevAuto above) laid over the *same* canvas the top-down
+  // editor uses. Node x-position on this graph is locked to node index
+  // (evenly spread across the canvas width) -- only elevation and its
+  // tangent are draggable -- so there's no separate curve topology to keep
+  // in sync with the top-down one; it's always exactly one point per node.
+  // =========================================================================
+  const SLOPE_MARGIN_X = 32, SLOPE_MARGIN_Y = 40;
+  const SLOPE_HANDLE_REACH_PX = 42; // cosmetic only -- elevationAt never reads screen position
+  // Rebuilt on every drawSlopeProfile() call; pointer handlers read the last
+  // one, which is always fresh by the time a pointerdown can happen (draw()
+  // runs after every mutation and mode switch, including entering "slope").
+  let slopeScale = null;
+
+  // The elevation at Bezier parameter t within segment [i0, i1] -- same t as
+  // the XZ curve's own sampling (computeTrack3D passes through whatever
+  // sampleSegmentForTrack picked, uniform or arc-length), so a sample's
+  // elevation and its XZ position always correspond to the same "progress"
+  // through the segment even though they're two independently-shaped curves.
+  // Plain scalar cubic Bezier (Bernstein form) since only Y ever matters --
+  // the handle's screen x-offset above is purely a UI affordance and never
+  // feeds into this.
+  function elevationAt(i0, i1, t) {
+    const n0 = nodes[i0], n1 = nodes[i1];
+    const y0 = n0.elev, y1 = n0.elev + n0.elevTangent;
+    const y2 = n1.elev - n1.elevTangent, y3 = n1.elev;
+    const mt = 1 - t;
+    return mt * mt * mt * y0 + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y3;
+  }
+
+  function slopeNodeX(i) {
+    if (nodes.length <= 1) return SLOPE_MARGIN_X;
+    return SLOPE_MARGIN_X + (i / (nodes.length - 1)) * (cw - SLOPE_MARGIN_X * 2);
+  }
+  function elevToScreenY(elev) {
+    if (!slopeScale) return SLOPE_MARGIN_Y;
+    const frac = (elev - slopeScale.min) / slopeScale.range;
+    return SLOPE_MARGIN_Y + (1 - frac) * slopeScale.plotHeight;
+  }
+  function screenYToElev(y) {
+    if (!slopeScale) return 0;
+    const frac = 1 - (y - SLOPE_MARGIN_Y) / slopeScale.plotHeight;
+    return slopeScale.min + frac * slopeScale.range;
+  }
+  function hitTestSlopeNode(pos) {
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const p = { x: slopeNodeX(i), y: elevToScreenY(nodes[i].elev) };
+      if (dist(pos, p) <= NODE_HIT_R) return nodes[i];
+    }
+    return null;
+  }
+  function hitTestSlopeHandle(pos) {
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const x = slopeNodeX(i);
+      const outPos = { x: x + SLOPE_HANDLE_REACH_PX, y: elevToScreenY(node.elev + node.elevTangent) };
+      const inPos = { x: x - SLOPE_HANDLE_REACH_PX, y: elevToScreenY(node.elev - node.elevTangent) };
+      if (dist(pos, outPos) <= HANDLE_HIT_R) return { node, which: "out" };
+      if (dist(pos, inPos) <= HANDLE_HIT_R) return { node, which: "in" };
+    }
+    return null;
+  }
+
   canvas.addEventListener("pointerdown", (e) => {
     const pos = pointerPos(e);
     if (mode === "place") {
@@ -662,6 +777,18 @@ import Box3D from "box3d-wasm";
         updateStats();
         draw();
       }
+    } else if (mode === "slope") {
+      const h = hitTestSlopeHandle(pos);
+      if (h) {
+        drag = { kind: "slope-handle", node: h.node, which: h.which };
+        canvas.setPointerCapture(e.pointerId);
+        return;
+      }
+      const n = hitTestSlopeNode(pos);
+      if (n) {
+        drag = { kind: "slope-node", node: n };
+        canvas.setPointerCapture(e.pointerId);
+      }
     }
   });
 
@@ -683,6 +810,17 @@ import Box3D from "box3d-wasm";
       node.hx = offset.x;
       node.hy = offset.y;
       node.auto = false; // manual edit overrides the automatic tangent heuristic
+    } else if (drag.kind === "slope-node") {
+      // x is locked to node index (see slopeNodeX) -- only the vertical
+      // drag position matters here.
+      drag.node.elev = screenYToElev(pos.y);
+      drag.node.elevAuto = false;
+      recomputeAllElevAuto(); // refresh still-auto neighbors against the new elev
+    } else if (drag.kind === "slope-handle") {
+      const node = drag.node;
+      const worldElev = screenYToElev(pos.y);
+      node.elevTangent = drag.which === "out" ? (worldElev - node.elev) : (node.elev - worldElev);
+      node.elevAuto = false;
     }
     draw();
   });
@@ -708,6 +846,11 @@ import Box3D from "box3d-wasm";
     ctx.clearRect(0, 0, cw, ch);
     ctx.fillStyle = cssVar("--bg-base");
     ctx.fillRect(0, 0, cw, ch);
+
+    if (mode === "slope") {
+      drawSlopeProfile();
+      return;
+    }
 
     // Dot grid
     ctx.fillStyle = cssVar("--border-subtle");
@@ -773,6 +916,83 @@ import Box3D from "box3d-wasm";
     }
   }
 
+  function drawSlopeProfile() {
+    // Autoscale the vertical axis to fit every current node elev *and* its
+    // handle offsets (so a dragged-out handle never renders off-canvas),
+    // always including 0 as a reference so a perfectly flat track still
+    // shows a meaningful baseline instead of a degenerate zero-range plot.
+    const ys = [0];
+    for (const node of nodes) {
+      ys.push(node.elev, node.elev + node.elevTangent, node.elev - node.elevTangent);
+    }
+    const min = Math.min(...ys), max = Math.max(...ys);
+    slopeScale = { min, range: Math.max(max - min, 0.5), plotHeight: ch - SLOPE_MARGIN_Y * 2 };
+
+    // Baseline (elev = 0)
+    ctx.strokeStyle = cssVar("--border-subtle");
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, elevToScreenY(0));
+    ctx.lineTo(cw, elevToScreenY(0));
+    ctx.stroke();
+
+    if (nodes.length >= 2) {
+      ctx.strokeStyle = cssVar("--accent-primary");
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      for (let i = 0; i < nodes.length - 1; i++) {
+        for (let j = 0; j <= SEGMENT_SAMPLES; j++) {
+          const t = j / SEGMENT_SAMPLES;
+          const x = slopeNodeX(i) + (slopeNodeX(i + 1) - slopeNodeX(i)) * t;
+          const y = elevToScreenY(elevationAt(i, i + 1, t));
+          if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Tangent handles (mirrors the top-down editor's edit-mode handles, but
+    // always visible here -- Slope has no separate place/edit/delete split).
+    ctx.strokeStyle = cssVar("--text-dim");
+    ctx.lineWidth = 1;
+    ctx.fillStyle = cssVar("--accent-success");
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const x = slopeNodeX(i);
+      const outPos = { x: x + SLOPE_HANDLE_REACH_PX, y: elevToScreenY(node.elev + node.elevTangent) };
+      const inPos = { x: x - SLOPE_HANDLE_REACH_PX, y: elevToScreenY(node.elev - node.elevTangent) };
+      ctx.beginPath();
+      ctx.moveTo(inPos.x, inPos.y);
+      ctx.lineTo(outPos.x, outPos.y);
+      ctx.stroke();
+      for (const hp of [inPos, outPos]) {
+        ctx.beginPath();
+        ctx.arc(hp.x, hp.y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Nodes
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const x = slopeNodeX(i), y = elevToScreenY(node.elev);
+      ctx.beginPath();
+      ctx.arc(x, y, NODE_HIT_R - 2, 0, Math.PI * 2);
+      ctx.fillStyle = cssVar("--bg-surface-elevated");
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = cssVar("--accent-primary");
+      ctx.stroke();
+      ctx.fillStyle = cssVar("--text-main");
+      ctx.font = "10px -apple-system, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i), x, y - NODE_HIT_R - 8);
+    }
+  }
+
   function updateStats() {
     document.getElementById("stat-nodes").textContent = String(nodes.length);
     document.getElementById("stat-segments").textContent = String(Math.max(0, nodes.length - 1));
@@ -790,15 +1010,18 @@ import Box3D from "box3d-wasm";
   // 2D editor really is "1 world unit" once projected into 3D.
   //
   // Node 0's 2D position is treated as the world-space origin (x=0, z=0).
-  // Elevation drops exactly 1 unit per *node index* (not per unit of path
-  // length -- see bezier_plan.md), so a node at index n always sits at
-  // y = -n regardless of how the 2D curve winds between nodes.
+  // Elevation defaults to a straight drop of 1 unit per *node index* (not
+  // per unit of path length), so a node at index n sits at y = -n unless
+  // the Slope view has been used to customize it -- see elevationAt and
+  // recomputeAllElevAuto above, which is what actually produces each node's
+  // `elev` (still exactly -n*ELEVATION_PER_NODE for a never-touched node).
   //
   // `samplingMode` picks how each segment's t-values are chosen -- "uniform"
   // (De Casteljau at fixed t steps) or "arclength" (resampled to even real
-  // distance via an arc-length lookup table) -- but either way the elevation
-  // rule always uses the resulting raw t, so both modes plug into the same
-  // downstream mesh/collider code without it needing to know which was used.
+  // distance via an arc-length lookup table) -- but either way both the XZ
+  // position AND the elevation rule (elevationAt) always use the resulting
+  // raw t, so both sampling modes plug into the same downstream mesh/
+  // collider code without it needing to know which was used.
   // =========================================================================
   const WORLD_UNIT_PX = GRID_STEP;
   const WORLD_UP = new THREE.Vector3(0, 1, 0);
@@ -809,6 +1032,14 @@ import Box3D from "box3d-wasm";
   let latestPathPoints = []; // full sampled 3D path, refreshed by rebuildTrack3D; spawnMarble reads the initial tangent from this
 
   function computeTrack3D() {
+    // Defensive: guarantees every node's elev/elevTangent reflects the
+    // *current* steepness slider and neighbor chain even if some caller
+    // changed node count or ELEVATION_PER_NODE without going through one of
+    // the sites that already call this (addNode, removeNode, the slider's
+    // own handler, and a Slope-view drag all do). Cheap and idempotent for
+    // nodes that are already up to date.
+    recomputeAllElevAuto();
+
     const pathPoints = [];
     const nodeMarkers = [];
     const bankPerPoint = [];
@@ -825,17 +1056,17 @@ import Box3D from "box3d-wasm";
       const startJ = i === 0 ? 0 : 1; // skip duplicate point shared with previous segment's end
       for (let j = startJ; j < samples.length; j++) {
         const t = samples[j].t;
-        pathPoints.push(toWorld(samples[j].p, -(i + t) * ELEVATION_PER_NODE));
+        pathPoints.push(toWorld(samples[j].p, elevationAt(i, i + 1, t)));
         bankPerPoint.push(nodes[i].bank + (nodes[i + 1].bank - nodes[i].bank) * t);
       }
       nodePathIndex[i + 1] = pathPoints.length - 1; // last point pushed is exactly t=1, i.e. node i+1
     }
     if (nodes.length === 1) {
-      pathPoints.push(toWorld(nodes[0], 0));
+      pathPoints.push(toWorld(nodes[0], nodes[0].elev));
       bankPerPoint.push(nodes[0].bank);
     }
     for (let i = 0; i < nodes.length; i++) {
-      nodeMarkers.push(toWorld(nodes[i], -i * ELEVATION_PER_NODE));
+      nodeMarkers.push(toWorld(nodes[i], nodes[i].elev));
     }
     return { pathPoints, nodeMarkers, bankPerPoint, nodePathIndex };
   }
@@ -1257,7 +1488,7 @@ import Box3D from "box3d-wasm";
   let orbiting = false, lastOrbitX = 0, lastOrbitY = 0;
   let panning3d = false, lastPanX = 0, lastPanY = 0;
 
-  // Multi-touch: one finger orbits (or, in Edit Bankings mode, taps a node),
+  // Multi-touch: one finger orbits (or, with Edit Bankings on, taps a node),
   // two fingers pan + pinch-zoom together. Pointer Events unify mouse/touch/
   // pen, so this is just tracking however many contacts are currently down.
   const activePointers3d = new Map(); // pointerId -> {x, y}
