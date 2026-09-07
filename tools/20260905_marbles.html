@@ -339,6 +339,7 @@
 
         <h3>Camera</h3>
         <p>One finger to orbit, two fingers to pan, pinch (or scroll) to zoom.</p>
+        <p>Desktop: WASD flies the camera through the scene (forward/back/strafe) while this view is open.</p>
         <div class="btn-group" id="projection-group">
           <button data-projection="perspective">Perspective</button>
           <button data-projection="isometric">Isometric</button>
@@ -1448,6 +1449,51 @@ import Box3D from "box3d-wasm";
     updateCamera3D();
   }, { passive: false });
 
+  // ---- WASD fly camera (desktop only -- no touch equivalent) ----
+  // Held keys just accumulate in a Set; the actual movement is applied once
+  // per rendered frame in animate3D, scaled by that frame's real elapsed
+  // time, so held-key movement speed doesn't depend on keyboard repeat rate.
+  const FLY_KEY_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
+  const pressedFlyKeys = new Set();
+  function isTypingIntoControl(el) {
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+  }
+  window.addEventListener("keydown", (e) => {
+    if (!FLY_KEY_CODES.has(e.code) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isTypingIntoControl(document.activeElement)) return;
+    pressedFlyKeys.add(e.code);
+  });
+  window.addEventListener("keyup", (e) => {
+    pressedFlyKeys.delete(e.code);
+  });
+  // Held keys would otherwise get "stuck" if focus leaves the page (e.g.
+  // alt-tabbing away) while a key is still physically down, since no keyup
+  // ever fires -- clearing on blur matches how the orbit/pan drag state
+  // resets on pointercancel/pointerup for the same reason.
+  window.addEventListener("blur", () => pressedFlyKeys.clear());
+
+  // Moves orbitTarget (the orbit pivot) along the camera's own current
+  // forward/right axes -- W/S dolly toward/away from wherever the camera is
+  // currently looking, A/D strafe sideways -- so the whole orbit rig (pivot
+  // + the spherical offset that places the camera relative to it) glides
+  // through the scene together, rather than just re-centering the orbit on
+  // a fixed plane. Reuses the same matrixWorld-column technique the
+  // two-finger pan drag above already relies on for its camRight/camUp.
+  const FLY_SPEED = 4; // world units/second at orbitRadius's default scale
+  function applyFlyCamera(dt) {
+    if (pressedFlyKeys.size === 0) return;
+    const camRight = new THREE.Vector3().setFromMatrixColumn(camera3d.matrixWorld, 0);
+    const camForward = new THREE.Vector3().setFromMatrixColumn(camera3d.matrixWorld, 2).multiplyScalar(-1);
+    // Scale with orbitRadius so a step still feels proportionate whether
+    // zoomed in tight on one node or looking at the whole track from afar.
+    const step = FLY_SPEED * (orbitRadius / 8) * dt;
+    if (pressedFlyKeys.has("KeyW")) orbitTarget.addScaledVector(camForward, step);
+    if (pressedFlyKeys.has("KeyS")) orbitTarget.addScaledVector(camForward, -step);
+    if (pressedFlyKeys.has("KeyD")) orbitTarget.addScaledVector(camRight, step);
+    if (pressedFlyKeys.has("KeyA")) orbitTarget.addScaledVector(camRight, -step);
+    updateCamera3D();
+  }
+
   const PHYSICS_DT = 1 / 60;
   let physicsAccumulator = 0;
   let lastFrameTime = performance.now() / 1000;
@@ -1458,6 +1504,7 @@ import Box3D from "box3d-wasm";
     lastFrameTime = now;
 
     if (currentView === "play") {
+      applyFlyCamera(frameTime);
       if (simRunning) {
         spawnTimer += frameTime;
         while (spawnTimer >= SPAWN_INTERVAL) {
