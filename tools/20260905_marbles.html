@@ -367,14 +367,14 @@
         <h3>Display</h3>
         <label class="check"><input type="checkbox" id="show-mesh-check" checked /> Track mesh</label>
         <label class="check"><input type="checkbox" id="show-debug-check" /> Debug points</label>
-        <label class="check"><input type="checkbox" id="show-colliders-check" /> Colliders (capsules)</label>
+        <label class="check"><input type="checkbox" id="show-colliders-check" /> Colliders (mesh)</label>
 
         <h3>Track</h3>
         <div class="stat-row"><span>Rail vertices</span><span id="stat-vertices">0</span></div>
-        <div class="stat-row"><span>Collider capsules</span><span id="stat-capsules">0</span></div>
+        <div class="stat-row"><span>Collider triangles</span><span id="stat-collider-tris">0</span></div>
 
         <h3>Collider note</h3>
-        <p>box3d-wasm doesn't bind a triangle-mesh shape to JS (only box/sphere/capsule/hull), so each rail is collided as a chain of static capsules following the same frames as the visual tube &mdash; a round primitive matched to a round rail.</p>
+        <p>Each rail collides as a single static triangle mesh, built from the exact same vertices as the visual tube &mdash; box3d-wasm 0.2.0 doesn't expose a triangle-mesh shape to JS by default, so this tool vendors a custom build with that binding added (the underlying box3d engine already supports it natively; see BUILD.txt next to the vendored wasm).</p>
 
         <h3>QC checklist</h3>
         <ul>
@@ -901,9 +901,10 @@ import Box3D from "box3d-wasm";
 
   // Explicit ring-extrusion along `points`, using the shared level `frames`
   // for every ring so both rails stay level and in lockstep with each other
-  // (and with the capsule colliders below, which walk these same offset
-  // centerlines). Material is double-sided so any winding mistake here still
-  // can't show up as a visual gap -- see RAIL_MATERIAL.
+  // (and with the mesh colliders below, which are built from these exact
+  // same positions/indices -- collision geometry is the visual tube, not an
+  // approximation of it). Material is double-sided so any winding mistake
+  // here still can't show up as a visual gap -- see RAIL_MATERIAL.
   function buildRailTubeGeometry(points, frames, side) {
     const n = points.length;
     const railCenters = new Array(n);
@@ -934,7 +935,12 @@ import Box3D from "box3d-wasm";
     geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    return { geo, railCenters };
+    // `positions`/`indices` are handed to rebuildColliders as-is: this
+    // winding (verified against box3d, which -- like most mesh colliders --
+    // only collides the outward face of each triangle) already produces
+    // outward-facing normals, matching what box3d's createMesh needs, so the
+    // exact same buffers serve as both the render mesh and the collider.
+    return { geo, railCenters, positions, indices };
   }
 
   // ---- Scene ----
@@ -1160,13 +1166,13 @@ import Box3D from "box3d-wasm";
       const child = trackMeshGroup.children.pop();
       child.geometry.dispose();
     }
-    const railCentersBySide = [];
+    const railMeshesBySide = [];
     for (const side of [-1, 1]) {
-      const { geo, railCenters } = buildRailTubeGeometry(pathPoints, frames, side);
+      const { geo, positions, indices } = buildRailTubeGeometry(pathPoints, frames, side);
       trackMeshGroup.add(new THREE.Mesh(geo, RAIL_MATERIAL));
-      railCentersBySide.push(railCenters);
+      railMeshesBySide.push({ positions, indices });
     }
-    return { railCentersBySide, totalVerts: pathPoints.length * RAIL_RADIAL_SEGMENTS * 2 };
+    return { railMeshesBySide, totalVerts: pathPoints.length * RAIL_RADIAL_SEGMENTS * 2 };
   }
 
   function computeCentroid(points) {
@@ -1476,13 +1482,13 @@ import Box3D from "box3d-wasm";
   }
 
   // =========================================================================
-  // Colliders: box3d-wasm's JS binding only exposes createBox, createSphere,
-  // createCapsule, and createHull (no createTriangleMesh -- verified by
-  // inspecting the compiled wasm's exported symbols directly), so instead of
-  // one collider mesh, each rail becomes a chain of static capsules -- one
-  // per path sample segment -- walking the exact same offset centerlines the
-  // visual tube uses. A capsule's round cross-section already matches a
-  // round rail, so this isn't really a downgrade from a triangle mesh.
+  // Colliders: each rail collides as a single static triangle-mesh shape,
+  // built from the exact same positions/indices as its visual tube (see
+  // buildRailTubeGeometry) -- collision geometry is the rendered rail, not
+  // an approximation of it. This uses Body.createMesh(), a binding this repo
+  // added on top of stock box3d-wasm 0.2.0 (which doesn't expose one) -- see
+  // tools/20260905_marbles_box3d-wasm/BUILD.txt and mesh-shape-binding.patch
+  // for how, and why the underlying engine already supported this natively.
   // =========================================================================
   const b3 = await Box3D();
   // contactHertz/contactDampingRatio are Box3D's global "soft-step" solver
@@ -1491,10 +1497,9 @@ import Box3D from "box3d-wasm";
   // a resting body sinks into a surface before being pushed back out, i.e.
   // real, tunable "give" applied to every contact in the world at once.
   // Chosen to noticeably soften the marble/rail rattling at speed without
-  // going as soft as the extreme values tested (which felt mushy). No
-  // change to the collider architecture itself -- still static capsules.
-  // enableContinuous helps the small/fast marble not tunnel through a thin
-  // capsule joint between physics steps.
+  // going as soft as the extreme values tested (which felt mushy).
+  // enableContinuous helps the small/fast marble not tunnel through a rail
+  // between physics steps.
   const physicsWorld = new b3.World({
     gravity: { x: 0, y: -9.8, z: 0 },
     enableSleep: false,
@@ -1502,56 +1507,41 @@ import Box3D from "box3d-wasm";
     contactHertz: 7,        // lower = softer
     contactDampingRatio: 6, // higher = more damped/less bouncy
   });
-  const CAPSULE_FRICTION = 0.2;
+  const RAIL_COLLIDER_FRICTION = 0.2;
   // box3d-wasm's shapes take density/friction/restitution/isSensor/filter/
   // event-flags -- no separate contact-stiffness or "softness" knob exists
   // in the bound API. Restitution (bounciness) is the practical equivalent
   // lever: lower it and a contact returns less of the impact velocity, so
-  // the marble "rattling" off the capsule-chain joints doesn't fling as much
-  // speed back into it. Explicit 0 here (rather than relying on whatever the
-  // shape default is) so this is easy to find and retune later.
-  const CAPSULE_RESTITUTION = 0;
-
-  // Box3D capsules run along local +Y, so rotate +Y onto the segment's own
-  // tangent direction (setFromUnitVectors degenerates for exact opposite
-  // vectors, hence the explicit 180-degree fallback).
-  function quaternionForCapsule(tangent) {
-    if (tangent.dot(WORLD_UP) < -0.9999) {
-      return new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
-    }
-    return new THREE.Quaternion().setFromUnitVectors(WORLD_UP, tangent);
-  }
+  // the marble "rattling" off the rails doesn't fling as much speed back
+  // into it. Explicit 0 here (rather than relying on whatever the shape
+  // default is) so this is easy to find and retune later.
+  const RAIL_COLLIDER_RESTITUTION = 0;
 
   let colliderBodies = [];
-  function rebuildColliders(railCentersBySide) {
+  function rebuildColliders(railMeshesBySide) {
     for (const body of colliderBodies) body.destroy();
     colliderBodies = [];
     while (colliderDebugGroup.children.length) {
       const child = colliderDebugGroup.children.pop();
       child.geometry.dispose();
     }
-    for (const centers of railCentersBySide) {
-      for (let i = 0; i < centers.length - 1; i++) {
-        const a = centers[i], b = centers[i + 1];
-        const segLen = a.distanceTo(b);
-        if (segLen < 1e-6) continue;
-        const mid = a.clone().add(b).multiplyScalar(0.5);
-        const tangent = b.clone().sub(a).normalize();
-        const quat = quaternionForCapsule(tangent);
-
-        const body = physicsWorld.createBody({
-          type: "static",
-          position: { x: mid.x, y: mid.y, z: mid.z },
-          rotation: { x: quat.x, y: quat.y, z: quat.z, w: quat.w },
-        });
-        body.createCapsule({ height: segLen, radius: RAIL_RADIUS, friction: CAPSULE_FRICTION, restitution: CAPSULE_RESTITUTION });
-        colliderBodies.push(body);
-
-        const debugMesh = new THREE.Mesh(new THREE.CapsuleGeometry(RAIL_RADIUS, segLen, 4, 8), COLLIDER_DEBUG_MATERIAL);
-        debugMesh.position.copy(mid);
-        debugMesh.quaternion.copy(quat);
-        colliderDebugGroup.add(debugMesh);
+    for (const { positions, indices } of railMeshesBySide) {
+      // Body.createMesh wants an array of {x,y,z} vectors, not a flat
+      // Float32-style array -- same convention box3d-wasm's own createHull
+      // already uses for its `points` option.
+      const vertices = new Array(positions.length / 3);
+      for (let i = 0; i < vertices.length; i++) {
+        vertices[i] = { x: positions[i * 3], y: positions[i * 3 + 1], z: positions[i * 3 + 2] };
       }
+
+      const body = physicsWorld.createBody({ type: "static" });
+      body.createMesh({ vertices, indices, friction: RAIL_COLLIDER_FRICTION, restitution: RAIL_COLLIDER_RESTITUTION });
+      colliderBodies.push(body);
+
+      const debugGeo = new THREE.BufferGeometry();
+      debugGeo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      debugGeo.setIndex(indices);
+      colliderDebugGroup.add(new THREE.Mesh(debugGeo, COLLIDER_DEBUG_MATERIAL));
     }
   }
 
@@ -1561,17 +1551,11 @@ import Box3D from "box3d-wasm";
   // radius is bigger than half the rail gauge (see RAIL_GAUGE above) so it
   // can't slip between the two rails -- it rests balanced across both.
   //
-  // SPAWN_KICK: each rail is a *chain* of short capsule segments (not one
-  // smooth mesh -- see the collider note above), and consecutive capsules
-  // meet at a slight angle wherever the path curves, leaving a tiny lip at
-  // every joint. A marble spawned with exactly zero velocity settles right
-  // at the very first joint (node 0 is itself a joint) and can rest there
-  // indefinitely -- confirmed in isolation: a bare capsule chain on a slope
-  // never starts rolling from a standing start, but rolls the full length
-  // without issue once given even a small nudge. So spawnMarble gives it a
-  // small initial push along the path's own starting tangent, just enough
-  // to clear that first lip; every joint after that is negligible against
-  // the marble's own momentum.
+  // SPAWN_KICK: a marble spawned with exactly zero velocity can settle into
+  // a stable rest at node 0 rather than rolling, if the track doesn't start
+  // steeply enough on its own. So spawnMarble gives it a small initial push
+  // along the path's own starting tangent, just enough to get it moving;
+  // its own momentum carries it the rest of the way.
   // =========================================================================
   const MARBLE_R = 0.18;
   const MARBLE_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xd7dade, metalness: 1.0, roughness: 0.2 });
@@ -1741,7 +1725,7 @@ import Box3D from "box3d-wasm";
       debugPointsGroup.add(nodePoints);
     }
 
-    let vertexCount = 0, capsuleCount = 0;
+    let vertexCount = 0, colliderTriCount = 0;
     if (pathPoints.length >= 2) {
       const frames = computeLevelFrames(pathPoints);
       // Capture each node's *unbanked* frame before applyBankToFrames mutates
@@ -1755,10 +1739,10 @@ import Box3D from "box3d-wasm";
         binormal0: frames.binormals[pi].clone(),
       }));
       applyBankToFrames(frames, bankPerPoint);
-      const { railCentersBySide, totalVerts } = rebuildRailMesh(pathPoints, frames);
-      rebuildColliders(railCentersBySide);
+      const { railMeshesBySide, totalVerts } = rebuildRailMesh(pathPoints, frames);
+      rebuildColliders(railMeshesBySide);
       vertexCount = totalVerts;
-      capsuleCount = colliderBodies.length;
+      colliderTriCount = railMeshesBySide.reduce((sum, { indices }) => sum + indices.length / 3, 0);
     } else {
       nodeFrameData = nodePathIndex.map((pi, ni) => ({
         pos: (nodeMarkers[ni] || new THREE.Vector3()).clone(),
@@ -1771,7 +1755,7 @@ import Box3D from "box3d-wasm";
     }
     if (hoveredNodeIndex !== -1) updateHandleVisual(hoveredNodeIndex);
     document.getElementById("stat-vertices").textContent = String(vertexCount);
-    document.getElementById("stat-capsules").textContent = String(capsuleCount);
+    document.getElementById("stat-collider-tris").textContent = String(colliderTriCount);
 
     // Recenter the orbit pivot on the track's centroid ("center of mass") so
     // long or lopsided tracks don't orbit around empty space -- but only on
