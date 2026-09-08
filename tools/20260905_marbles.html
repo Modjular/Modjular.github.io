@@ -131,6 +131,21 @@
   .fab.wide { width: auto; min-width: 64px; border-radius: 24px; padding: 0 18px; font-size: 13px; font-weight: 600; }
   #view-toggle-fab { top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); }
   #settings-fab { bottom: max(1rem, env(safe-area-inset-bottom)); right: max(1rem, env(safe-area-inset-right)); }
+  #fps-counter {
+    position: fixed;
+    top: max(1rem, env(safe-area-inset-top));
+    left: max(1rem, env(safe-area-inset-left));
+    z-index: 20;
+    background: var(--bg-surface-elevated);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    padding: 7px 12px;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    pointer-events: none;
+  }
 
   /* ---- Bottom bar: floating, centered, content swaps by mode ---- */
   #bottom-bar {
@@ -282,6 +297,7 @@
 
   <button class="fab wide" id="view-toggle-fab">3D</button>
   <button class="fab" id="settings-fab" title="Settings">&#9881;</button>
+  <div id="fps-counter" style="display:none">-- fps</div>
 
   <div id="bottom-bar">
     <div id="bottom-bar-2d" class="btn-group">
@@ -381,6 +397,21 @@
         <h3>Collider note</h3>
         <p>Each rail collides as a single static triangle mesh, matching the visual tube exactly. See BUILD.txt next to the vendored box3d-wasm build for how.</p>
 
+        <h3>Contact tuning</h3>
+        <p>Lower hertz or higher damping ratio gives a contact more "give" before it pushes back &mdash; these two retune the whole physics world, so any marbles in flight reset. Friction and restitution apply per-rail and don't reset anything.</p>
+
+        <div class="stat-row" style="margin-top:0.6rem"><span>Contact hertz</span><span id="contact-hertz-value">7</span></div>
+        <input type="range" id="contact-hertz-slider" min="1" max="30" step="1" value="7" />
+
+        <div class="stat-row"><span>Contact damping ratio</span><span id="contact-damping-value">6</span></div>
+        <input type="range" id="contact-damping-slider" min="0" max="20" step="0.5" value="6" />
+
+        <div class="stat-row"><span>Rail friction</span><span id="rail-friction-value">0.20</span></div>
+        <input type="range" id="rail-friction-slider" min="0" max="1" step="0.05" value="0.2" />
+
+        <div class="stat-row"><span>Rail restitution</span><span id="rail-restitution-value">0.00</span></div>
+        <input type="range" id="rail-restitution-slider" min="0" max="1" step="0.05" value="0" />
+
         <h3>QC checklist</h3>
         <ul>
           <li>Marble spawns at node 0 and rolls the full length of the track.</li>
@@ -391,6 +422,7 @@
       </div>
 
       <h3>General</h3>
+      <label class="check"><input type="checkbox" id="show-fps-check" /> Show FPS counter</label>
       <button class="btn-danger" id="clear-btn">Clear track</button>
     </div>
   </div>
@@ -1732,11 +1764,36 @@ import Box3D from "box3d-wasm";
   const PHYSICS_DT = 1 / 60;
   let physicsAccumulator = 0;
   let lastFrameTime = performance.now() / 1000;
+
+  // ---- FPS counter (opt-in via Settings -> General) ----
+  // Measures the real gap between animate3D calls -- i.e. actual delivered
+  // frame rate, whichever view is showing -- rather than a fixed 60, so it
+  // also dips if something (say, a heavy 2D redraw) delays the next frame.
+  // Smoothed (light exponential moving average) and only written to the DOM
+  // a few times a second, since a raw per-frame textContent write is exactly
+  // the kind of needless per-frame cost this file has just been trimming.
+  const fpsCounterEl = document.getElementById("fps-counter");
+  const showFpsCheck = document.getElementById("show-fps-check");
+  showFpsCheck.addEventListener("change", () => {
+    fpsCounterEl.style.display = showFpsCheck.checked ? "block" : "none";
+  });
+  let fpsSmoothed = 0;
+  let fpsLastLabelUpdate = 0;
+
   function animate3D() {
     requestAnimationFrame(animate3D);
     const now = performance.now() / 1000;
     const frameTime = Math.min(now - lastFrameTime, 0.25);
     lastFrameTime = now;
+
+    if (showFpsCheck.checked && frameTime > 0) {
+      const instantFps = 1 / frameTime;
+      fpsSmoothed = fpsSmoothed ? fpsSmoothed * 0.9 + instantFps * 0.1 : instantFps;
+      if (now - fpsLastLabelUpdate > 0.25) {
+        fpsLastLabelUpdate = now;
+        fpsCounterEl.textContent = Math.round(fpsSmoothed) + " fps";
+      }
+    }
 
     if (currentView === "play") {
       applyFlyCamera(frameTime);
@@ -1779,25 +1836,34 @@ import Box3D from "box3d-wasm";
   // a resting body sinks into a surface before being pushed back out, i.e.
   // real, tunable "give" applied to every contact in the world at once.
   // Chosen to noticeably soften the marble/rail rattling at speed without
-  // going as soft as the extreme values tested (which felt mushy).
+  // going as soft as the extreme values tested (which felt mushy). Both are
+  // constructor-only options on b3.World (no live setter exists), so the
+  // "Contact tuning" sliders retune them by tearing down and recreating the
+  // whole world -- see scheduleWorldRebuild/recreatePhysicsWorld below.
   // enableContinuous helps the small/fast marble not tunnel through a rail
   // between physics steps.
-  const physicsWorld = new b3.World({
+  let CONTACT_HERTZ = 7;         // lower = softer
+  let CONTACT_DAMPING_RATIO = 6; // higher = more damped/less bouncy
+  let physicsWorld = new b3.World({
     gravity: { x: 0, y: -9.8, z: 0 },
     enableSleep: false,
     enableContinuous: true,
-    contactHertz: 7,        // lower = softer
-    contactDampingRatio: 6, // higher = more damped/less bouncy
+    contactHertz: CONTACT_HERTZ,
+    contactDampingRatio: CONTACT_DAMPING_RATIO,
   });
-  const RAIL_COLLIDER_FRICTION = 0.2;
+  let RAIL_COLLIDER_FRICTION = 0.2;
   // box3d-wasm's shapes take density/friction/restitution/isSensor/filter/
   // event-flags -- no separate contact-stiffness or "softness" knob exists
   // in the bound API. Restitution (bounciness) is the practical equivalent
   // lever: lower it and a contact returns less of the impact velocity, so
   // the marble "rattling" off the rails doesn't fling as much speed back
   // into it. Explicit 0 here (rather than relying on whatever the shape
-  // default is) so this is easy to find and retune later.
-  const RAIL_COLLIDER_RESTITUTION = 0;
+  // default is) so this is easy to find and retune later. Unlike the
+  // contact-tuning pair above, these two live on each collider shape, so the
+  // "Rail friction"/"Rail restitution" sliders can apply them by simply
+  // rebuilding the colliders (scheduleTrackRebuild) -- no world rebuild
+  // needed.
+  let RAIL_COLLIDER_RESTITUTION = 0;
 
   let colliderBodies = [];
   function rebuildColliders(railMeshesBySide) {
@@ -1825,6 +1891,39 @@ import Box3D from "box3d-wasm";
       debugGeo.setIndex(indices);
       colliderDebugGroup.add(new THREE.Mesh(debugGeo, COLLIDER_DEBUG_MATERIAL));
     }
+  }
+
+  // contactHertz/contactDampingRatio have no live setter (see the comment by
+  // their declaration above), so retuning them means tearing down the whole
+  // world and everything that lived in it -- marbles, the desk collider, the
+  // rail colliders -- and rebuilding from scratch against a fresh one.
+  // Coalesced through requestAnimationFrame exactly like scheduleTrackRebuild,
+  // since this is even more expensive and the "Contact tuning" sliders fire
+  // the same rapid burst of input events while being dragged.
+  let worldRebuildQueued = false;
+  function scheduleWorldRebuild() {
+    if (worldRebuildQueued) return;
+    worldRebuildQueued = true;
+    requestAnimationFrame(() => {
+      worldRebuildQueued = false;
+      recreatePhysicsWorld();
+    });
+  }
+  function recreatePhysicsWorld() {
+    stopSim(); // clears marbles and resets the Play/Pause button
+    for (const body of colliderBodies) body.destroy();
+    colliderBodies = [];
+    if (floorBody) { floorBody.destroy(); floorBody = null; }
+    physicsWorld.destroy();
+    physicsWorld = new b3.World({
+      gravity: { x: 0, y: -9.8, z: 0 },
+      enableSleep: false,
+      enableContinuous: true,
+      contactHertz: CONTACT_HERTZ,
+      contactDampingRatio: CONTACT_DAMPING_RATIO,
+    });
+    lastDeskAnchor = null; // force updateRoomAndDesk to recreate the floor body against the new world
+    rebuildTrack3D({ recenterCamera: false });
   }
 
   // =========================================================================
@@ -2117,6 +2216,53 @@ import Box3D from "box3d-wasm";
     TRACK_SAMPLES_PER_SEGMENT = Number(resolutionSlider.value);
     resolutionValueEl.textContent = `${TRACK_SAMPLES_PER_SEGMENT} / segment`;
     scheduleTrackRebuild();
+  });
+
+  // ---- Contact tuning sliders ----
+  // contactHertz/contactDampingRatio have no live setter, so they go through
+  // scheduleWorldRebuild (tears down and recreates physicsWorld). Friction
+  // and restitution live per-collider, so they just need the colliders
+  // rebuilt -- scheduleTrackRebuild already does that as part of its normal
+  // rebuild, and is cheap to coalesce into if a contact-tuning drag and a
+  // resolution/steepness drag ever land in the same frame.
+  const contactHertzSlider = document.getElementById("contact-hertz-slider");
+  const contactHertzValueEl = document.getElementById("contact-hertz-value");
+  contactHertzSlider.value = String(CONTACT_HERTZ);
+  contactHertzValueEl.textContent = String(CONTACT_HERTZ);
+  contactHertzSlider.addEventListener("input", () => {
+    CONTACT_HERTZ = Number(contactHertzSlider.value);
+    contactHertzValueEl.textContent = String(CONTACT_HERTZ);
+    scheduleWorldRebuild();
+  });
+
+  const contactDampingSlider = document.getElementById("contact-damping-slider");
+  const contactDampingValueEl = document.getElementById("contact-damping-value");
+  contactDampingSlider.value = String(CONTACT_DAMPING_RATIO);
+  contactDampingValueEl.textContent = String(CONTACT_DAMPING_RATIO);
+  contactDampingSlider.addEventListener("input", () => {
+    CONTACT_DAMPING_RATIO = Number(contactDampingSlider.value);
+    contactDampingValueEl.textContent = String(CONTACT_DAMPING_RATIO);
+    scheduleWorldRebuild();
+  });
+
+  const railFrictionSlider = document.getElementById("rail-friction-slider");
+  const railFrictionValueEl = document.getElementById("rail-friction-value");
+  railFrictionSlider.value = String(RAIL_COLLIDER_FRICTION);
+  railFrictionValueEl.textContent = RAIL_COLLIDER_FRICTION.toFixed(2);
+  railFrictionSlider.addEventListener("input", () => {
+    RAIL_COLLIDER_FRICTION = Number(railFrictionSlider.value);
+    railFrictionValueEl.textContent = RAIL_COLLIDER_FRICTION.toFixed(2);
+    scheduleTrackRebuild({ recenterCamera: false });
+  });
+
+  const railRestitutionSlider = document.getElementById("rail-restitution-slider");
+  const railRestitutionValueEl = document.getElementById("rail-restitution-value");
+  railRestitutionSlider.value = String(RAIL_COLLIDER_RESTITUTION);
+  railRestitutionValueEl.textContent = RAIL_COLLIDER_RESTITUTION.toFixed(2);
+  railRestitutionSlider.addEventListener("input", () => {
+    RAIL_COLLIDER_RESTITUTION = Number(railRestitutionSlider.value);
+    railRestitutionValueEl.textContent = RAIL_COLLIDER_RESTITUTION.toFixed(2);
+    scheduleTrackRebuild({ recenterCamera: false });
   });
 
   // ---- Layer visibility toggles ----
