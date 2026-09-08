@@ -401,7 +401,7 @@
         <p>Lower hertz or higher damping ratio gives a contact more "give" before it pushes back &mdash; these two retune the whole physics world, so any marbles in flight reset. Friction and restitution apply per-rail and don't reset anything.</p>
 
         <div class="stat-row" style="margin-top:0.6rem"><span>Contact hertz</span><span id="contact-hertz-value">7</span></div>
-        <input type="range" id="contact-hertz-slider" min="1" max="30" step="1" value="7" />
+        <input type="range" id="contact-hertz-slider" min="1" max="60" step="1" value="7" />
 
         <div class="stat-row"><span>Contact damping ratio</span><span id="contact-damping-value">6</span></div>
         <input type="range" id="contact-damping-slider" min="0" max="20" step="0.5" value="6" />
@@ -411,6 +411,8 @@
 
         <div class="stat-row"><span>Rail restitution</span><span id="rail-restitution-value">0.00</span></div>
         <input type="range" id="rail-restitution-slider" min="0" max="1" step="0.05" value="0" />
+
+        <button class="btn-plain" id="reset-contact-tuning-btn" style="width:100%; margin-top:0.5rem;">Reset to box3d defaults</button>
 
         <h3>QC checklist</h3>
         <ul>
@@ -1836,12 +1838,24 @@ import Box3D from "box3d-wasm";
   // a resting body sinks into a surface before being pushed back out, i.e.
   // real, tunable "give" applied to every contact in the world at once.
   // Chosen to noticeably soften the marble/rail rattling at speed without
-  // going as soft as the extreme values tested (which felt mushy). Both are
-  // constructor-only options on b3.World (no live setter exists), so the
-  // "Contact tuning" sliders retune them by tearing down and recreating the
-  // whole world -- see scheduleWorldRebuild/recreatePhysicsWorld below.
+  // going as soft as the extreme values tested (which felt mushy). The
+  // engine itself has a live setter (b3World_SetContactTuning, see
+  // src/physics_world.c upstream), but box3d-wasm's JS bindings for
+  // b3.World don't expose it -- so the "Contact tuning" sliders retune these
+  // by tearing down and recreating the whole world instead. See
+  // scheduleWorldRebuild/recreatePhysicsWorld below.
   // enableContinuous helps the small/fast marble not tunnel through a rail
   // between physics steps.
+  //
+  // *_DEFAULT below are box3d's own engine defaults (b3DefaultWorldDef /
+  // b3DefaultShapeDef in src/types.c, upstream commit 29bf523 pinned in
+  // BUILD.txt) -- i.e. what you'd get by omitting these options entirely,
+  // not this file's hand-tuned starting values. Wired to "Reset to box3d
+  // defaults" below the sliders.
+  const CONTACT_HERTZ_DEFAULT = 30;
+  const CONTACT_DAMPING_RATIO_DEFAULT = 10;
+  const RAIL_COLLIDER_FRICTION_DEFAULT = 0.6;
+  const RAIL_COLLIDER_RESTITUTION_DEFAULT = 0;
   let CONTACT_HERTZ = 7;         // lower = softer
   let CONTACT_DAMPING_RATIO = 6; // higher = more damped/less bouncy
   let physicsWorld = new b3.World({
@@ -2263,6 +2277,28 @@ import Box3D from "box3d-wasm";
     RAIL_COLLIDER_RESTITUTION = Number(railRestitutionSlider.value);
     railRestitutionValueEl.textContent = RAIL_COLLIDER_RESTITUTION.toFixed(2);
     scheduleTrackRebuild({ recenterCamera: false });
+  });
+
+  document.getElementById("reset-contact-tuning-btn").addEventListener("click", () => {
+    CONTACT_HERTZ = CONTACT_HERTZ_DEFAULT;
+    CONTACT_DAMPING_RATIO = CONTACT_DAMPING_RATIO_DEFAULT;
+    RAIL_COLLIDER_FRICTION = RAIL_COLLIDER_FRICTION_DEFAULT;
+    RAIL_COLLIDER_RESTITUTION = RAIL_COLLIDER_RESTITUTION_DEFAULT;
+
+    contactHertzSlider.value = String(CONTACT_HERTZ);
+    contactHertzValueEl.textContent = String(CONTACT_HERTZ);
+    contactDampingSlider.value = String(CONTACT_DAMPING_RATIO);
+    contactDampingValueEl.textContent = String(CONTACT_DAMPING_RATIO);
+    railFrictionSlider.value = String(RAIL_COLLIDER_FRICTION);
+    railFrictionValueEl.textContent = RAIL_COLLIDER_FRICTION.toFixed(2);
+    railRestitutionSlider.value = String(RAIL_COLLIDER_RESTITUTION);
+    railRestitutionValueEl.textContent = RAIL_COLLIDER_RESTITUTION.toFixed(2);
+
+    // One world rebuild covers all four: recreatePhysicsWorld ends in
+    // rebuildTrack3D, which rebuilds the colliders too, so the friction/
+    // restitution reset takes effect in the same pass -- no need to also
+    // call scheduleTrackRebuild separately.
+    scheduleWorldRebuild();
   });
 
   // ---- Layer visibility toggles ----
