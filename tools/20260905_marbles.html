@@ -852,15 +852,19 @@ import Box3D from "box3d-wasm";
       return;
     }
 
-    // Dot grid
+    // Dot grid -- one path for every dot, filled once, instead of a
+    // beginPath/arc/fill triplet per dot (which was ~600 separate canvas
+    // calls per draw() on a typical viewport, the dominant cost of every
+    // redraw while placing/dragging/deleting nodes).
     ctx.fillStyle = cssVar("--border-subtle");
+    ctx.beginPath();
     for (let x = GRID_STEP; x < cw; x += GRID_STEP) {
       for (let y = GRID_STEP; y < ch; y += GRID_STEP) {
-        ctx.beginPath();
+        ctx.moveTo(x + 1.1, y); // start each dot as its own subpath, not connected to the last
         ctx.arc(x, y, 1.1, 0, Math.PI * 2);
-        ctx.fill();
       }
     }
+    ctx.fill();
 
     // Debug spline: one continuous De Casteljau-sampled polyline across
     // every segment, so any kink at a node boundary is immediately visible.
@@ -1600,7 +1604,7 @@ import Box3D from "box3d-wasm";
           const offset = hitPoint.sub(nf.pos);
           nodes[draggingNodeIndex].bank = Math.atan2(offset.dot(nf.binormal0), offset.dot(nf.normal0));
           updateHandleVisual(draggingNodeIndex);
-          rebuildTrack3D({ recenterCamera: false });
+          scheduleTrackRebuild({ recenterCamera: false });
         }
       }
       return;
@@ -2048,6 +2052,30 @@ import Box3D from "box3d-wasm";
     updateCamera3D();
   }
 
+  // rebuildTrack3D() resamples the whole spline, rebuilds both rail meshes,
+  // and destroys/recreates the WASM colliders -- tens of ms even for a
+  // modest track. A slider drag or a bank-handle drag fires its DOM event
+  // (input/pointermove) many times per second, far faster than that, so
+  // calling rebuildTrack3D() directly from those handlers stacks up
+  // multiple full rebuilds within a single rendered frame. This coalesces
+  // any number of calls made before the next frame into just one rebuild,
+  // reading whatever the live slider/bank values are by the time it runs.
+  let trackRebuildQueued = false;
+  let trackRebuildRecenter = true;
+  function scheduleTrackRebuild(opts = {}) {
+    const recenterCamera = opts.recenterCamera !== false;
+    if (trackRebuildQueued) {
+      trackRebuildRecenter = trackRebuildRecenter || recenterCamera;
+      return;
+    }
+    trackRebuildQueued = true;
+    trackRebuildRecenter = recenterCamera;
+    requestAnimationFrame(() => {
+      trackRebuildQueued = false;
+      rebuildTrack3D({ recenterCamera: trackRebuildRecenter });
+    });
+  }
+
   // ---- Camera projection toggle ----
   const projectionGroupEl = document.getElementById("projection-group");
   for (const b of projectionGroupEl.children) b.classList.toggle("active", b.dataset.projection === projectionMode);
@@ -2077,7 +2105,7 @@ import Box3D from "box3d-wasm";
   steepnessSlider.addEventListener("input", () => {
     ELEVATION_PER_NODE = Number(steepnessSlider.value);
     steepnessValueEl.textContent = `${ELEVATION_PER_NODE.toFixed(2)} units`;
-    rebuildTrack3D();
+    scheduleTrackRebuild();
   });
 
   // ---- Resolution slider ----
@@ -2088,7 +2116,7 @@ import Box3D from "box3d-wasm";
   resolutionSlider.addEventListener("input", () => {
     TRACK_SAMPLES_PER_SEGMENT = Number(resolutionSlider.value);
     resolutionValueEl.textContent = `${TRACK_SAMPLES_PER_SEGMENT} / segment`;
-    rebuildTrack3D();
+    scheduleTrackRebuild();
   });
 
   // ---- Layer visibility toggles ----
